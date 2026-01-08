@@ -26,9 +26,9 @@ const NFL_TEAMS = {
     name: 'Bills', city: 'Buffalo', abbr: 'BUF', color: '#00338D', color2: '#C60C30',
     logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/7/77/Buffalo_Bills_logo.svg/100px-Buffalo_Bills_logo.svg.png'
   },
-  LAC: { 
+  LAC: {
     name: 'Chargers', city: 'Los Angeles', abbr: 'LAC', color: '#0080C6', color2: '#FFC20E',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/Los_Angeles_Chargers_logo.svg/100px-Los_Angeles_Chargers_logo.svg.png'
+    logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png'
   },
   SEA: { 
     name: 'Seahawks', city: 'Seattle', abbr: 'SEA', color: '#002244', color2: '#69BE28',
@@ -61,6 +61,7 @@ const NFL_TEAMS = {
 };
 
 const NFL_SHIELD = 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a2/National_Football_League_logo.svg/100px-National_Football_League_logo.svg.png';
+const LOMBARDI_TROPHY = 'https://www.pngall.com/wp-content/uploads/15/Lombardi-Trophy-Transparent.png';
 
 // 2025-26 NFL Playoff Seeds
 const SEEDS = {
@@ -597,7 +598,9 @@ export default function App() {
               </div>
             ))}
           </div>
+          {/* Confidence feature hidden for now
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12, textAlign: 'center' }}>With confidence points: multiply round score × your assigned confidence value</p>
+          */}
         </div>
       </main>
     </div>
@@ -617,12 +620,14 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => setView('leaderboard')} style={styles.headerBtn}>🏆 Leaderboard</button>
+            {/* Confidence feature hidden for now
             <button
               onClick={() => setShowConfidence(!showConfidence)}
               style={{ ...styles.headerBtn, background: showConfidence ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)', borderColor: showConfidence ? '#22c55e' : 'rgba(255,255,255,0.1)' }}
             >
               {showConfidence ? '✓' : '🎯'} Confidence
             </button>
+            */}
             <div style={styles.badge}>
               <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: isPastDeadline ? '#ef4444' : '#f59e0b' }} />
               {countdown}
@@ -675,7 +680,12 @@ export default function App() {
             
             <div style={styles.sbHeader}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
-                <span className="float" style={{ fontSize: 56, display: 'block', filter: 'drop-shadow(0 4px 20px rgba(255,215,0,0.5))' }}>🏆</span>
+                <img
+                  className="float"
+                  src={LOMBARDI_TROPHY}
+                  alt="Lombardi Trophy"
+                  style={{ height: 130, objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(255,215,0,0.5))' }}
+                />
               </div>
               <h2 style={styles.sbTitle}>Super Bowl LX</h2>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>Levi's Stadium • Santa Clara • Feb 8</p>

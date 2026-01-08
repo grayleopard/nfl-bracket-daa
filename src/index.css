@@ -164,6 +164,14 @@ button:active {
   .bracket-nfc h3 {
     text-align: left !important;
   }
+
+  /* Center Super Bowl section on mobile - only when active */
+  .bracket-sb.active {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding-top: 20px !important;
+  }
 }
 
 /* Responsive - Mobile Portrait */
