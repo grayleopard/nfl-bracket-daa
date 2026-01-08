@@ -1,0 +1,838 @@
+import { useState, useEffect, useCallback } from 'react';
+
+// Real NFL team logos from Wikipedia/Wikimedia Commons (public domain / fair use for fan projects)
+const NFL_TEAMS = {
+  DEN: { 
+    name: 'Broncos', city: 'Denver', abbr: 'DEN', color: '#FB4F14', color2: '#002244',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/4/44/Denver_Broncos_logo.svg/100px-Denver_Broncos_logo.svg.png'
+  },
+  NE: { 
+    name: 'Patriots', city: 'New England', abbr: 'NE', color: '#002244', color2: '#C60C30',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/b/b9/New_England_Patriots_logo.svg/100px-New_England_Patriots_logo.svg.png'
+  },
+  JAX: { 
+    name: 'Jaguars', city: 'Jacksonville', abbr: 'JAX', color: '#006778', color2: '#D7A22A',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/7/74/Jacksonville_Jaguars_logo.svg/100px-Jacksonville_Jaguars_logo.svg.png'
+  },
+  PIT: { 
+    name: 'Steelers', city: 'Pittsburgh', abbr: 'PIT', color: '#FFB612', color2: '#101820',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Pittsburgh_Steelers_logo.svg/100px-Pittsburgh_Steelers_logo.svg.png'
+  },
+  HOU: { 
+    name: 'Texans', city: 'Houston', abbr: 'HOU', color: '#03202F', color2: '#A71930',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/2/28/Houston_Texans_logo.svg/100px-Houston_Texans_logo.svg.png'
+  },
+  BUF: { 
+    name: 'Bills', city: 'Buffalo', abbr: 'BUF', color: '#00338D', color2: '#C60C30',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/7/77/Buffalo_Bills_logo.svg/100px-Buffalo_Bills_logo.svg.png'
+  },
+  LAC: { 
+    name: 'Chargers', city: 'Los Angeles', abbr: 'LAC', color: '#0080C6', color2: '#FFC20E',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/Los_Angeles_Chargers_logo.svg/100px-Los_Angeles_Chargers_logo.svg.png'
+  },
+  SEA: { 
+    name: 'Seahawks', city: 'Seattle', abbr: 'SEA', color: '#002244', color2: '#69BE28',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/8/8e/Seattle_Seahawks_logo.svg/100px-Seattle_Seahawks_logo.svg.png'
+  },
+  CHI: { 
+    name: 'Bears', city: 'Chicago', abbr: 'CHI', color: '#0B162A', color2: '#C83803',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Chicago_Bears_logo.svg/100px-Chicago_Bears_logo.svg.png'
+  },
+  PHI: { 
+    name: 'Eagles', city: 'Philadelphia', abbr: 'PHI', color: '#004C54', color2: '#A5ACAF',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/8/8e/Philadelphia_Eagles_logo.svg/100px-Philadelphia_Eagles_logo.svg.png'
+  },
+  CAR: { 
+    name: 'Panthers', city: 'Carolina', abbr: 'CAR', color: '#0085CA', color2: '#101820',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/1/1c/Carolina_Panthers_logo.svg/100px-Carolina_Panthers_logo.svg.png'
+  },
+  LAR: { 
+    name: 'Rams', city: 'Los Angeles', abbr: 'LAR', color: '#003594', color2: '#FFA300',
+    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/8/8a/Los_Angeles_Rams_logo.svg/100px-Los_Angeles_Rams_logo.svg.png'
+  },
+  SF: { 
+    name: '49ers', city: 'San Francisco', abbr: 'SF', color: '#AA0000', color2: '#B3995D',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/San_Francisco_49ers_logo.svg/100px-San_Francisco_49ers_logo.svg.png'
+  },
+  GB: { 
+    name: 'Packers', city: 'Green Bay', abbr: 'GB', color: '#203731', color2: '#FFB612',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Green_Bay_Packers_logo.svg/100px-Green_Bay_Packers_logo.svg.png'
+  },
+};
+
+const NFL_SHIELD = 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a2/National_Football_League_logo.svg/100px-National_Football_League_logo.svg.png';
+
+// 2025-26 NFL Playoff Seeds
+const SEEDS = {
+  AFC: [
+    { seed: 1, team: 'DEN' }, { seed: 2, team: 'NE' }, { seed: 3, team: 'JAX' }, { seed: 4, team: 'PIT' },
+    { seed: 5, team: 'HOU' }, { seed: 6, team: 'BUF' }, { seed: 7, team: 'LAC' },
+  ],
+  NFC: [
+    { seed: 1, team: 'SEA' }, { seed: 2, team: 'CHI' }, { seed: 3, team: 'PHI' }, { seed: 4, team: 'CAR' },
+    { seed: 5, team: 'LAR' }, { seed: 6, team: 'SF' }, { seed: 7, team: 'GB' },
+  ],
+};
+
+const DEADLINE = new Date('2026-01-10T13:00:00-08:00');
+const AVATARS = ['🏈', '🦅', '🐻', '🐆', '🦁', '🐴', '🦬', '⚡', '🏴‍☠️', '🧀', '🌊', '⭐'];
+const CONFIDENCE_POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
+export default function App() {
+  const [view, setView] = useState('join');
+  const [userName, setUserName] = useState('');
+  const [userAvatar, setUserAvatar] = useState('🏈');
+  const [picks, setPicks] = useState({});
+  const [confidence, setConfidence] = useState({});
+  const [tiebreaker, setTiebreaker] = useState('');
+  const [showComplete, setShowComplete] = useState(false);
+  const [isPastDeadline, setIsPastDeadline] = useState(false);
+  const [countdown, setCountdown] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [compareUser, setCompareUser] = useState(null);
+  const [showConfidence, setShowConfidence] = useState(false);
+
+  // Countdown timer
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const diff = DEADLINE - now;
+      if (diff <= 0) {
+        setIsPastDeadline(true);
+        setCountdown('Picks Locked');
+      } else {
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        setCountdown(d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`);
+      }
+    };
+    tick();
+    const i = setInterval(tick, 60000);
+    return () => clearInterval(i);
+  }, []);
+
+  // Load saved data
+  useEffect(() => {
+    const saved = localStorage.getItem('nfl_bracket_2026');
+    if (saved) {
+      try {
+        const d = JSON.parse(saved);
+        if (d.userName) {
+          setUserName(d.userName);
+          setUserAvatar(d.avatar || '🏈');
+          setPicks(d.picks || {});
+          setConfidence(d.confidence || {});
+          setTiebreaker(d.tiebreaker || '');
+          setView('bracket');
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  // Save data
+  useEffect(() => {
+    if (userName && view === 'bracket') {
+      localStorage.setItem('nfl_bracket_2026', JSON.stringify({
+        userName,
+        avatar: userAvatar,
+        picks,
+        confidence,
+        tiebreaker,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+  }, [userName, userAvatar, picks, confidence, tiebreaker, view]);
+
+  const isComplete = Object.keys(picks).length === 13;
+  
+  useEffect(() => {
+    if (isComplete && !showComplete) {
+      setShowComplete(true);
+      setTimeout(() => setShowComplete(false), 3500);
+    }
+  }, [isComplete]);
+
+  // Check if a pick is an upset
+  const isUpset = (game, winner) => {
+    if (!game.h || !game.l || !winner) return false;
+    return winner === game.l.t;
+  };
+
+  // Get available confidence points
+  const getAvailableConfidence = () => {
+    const used = Object.values(confidence);
+    return CONFIDENCE_POINTS.filter(p => !used.includes(p));
+  };
+
+  // Assign confidence to a pick
+  const assignConfidence = (pickKey, points) => {
+    setConfidence(prev => {
+      const n = { ...prev };
+      Object.keys(n).forEach(k => { if (n[k] === points) delete n[k]; });
+      if (points) n[pickKey] = points;
+      else delete n[pickKey];
+      return n;
+    });
+  };
+
+  // Print bracket
+  const printBracket = () => window.print();
+
+  // Mock users for leaderboard
+  const mockUsers = [
+    { name: 'Sarah M.', avatar: '🦅', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'JAX', AFC_WC_2: 'PIT', NFC_WC_0: 'CHI', NFC_WC_1: 'PHI', NFC_WC_2: 'CAR', AFC_DIV_0: 'DEN', AFC_DIV_1: 'JAX', NFC_DIV_0: 'SEA', NFC_DIV_1: 'PHI', AFC_CHAMP: 'DEN', NFC_CHAMP: 'PHI', SUPER_BOWL: 'PHI' }, tiebreaker: 47, id: 'sarah' },
+    { name: 'Mike R.', avatar: '🐻', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'BUF', AFC_WC_2: 'HOU', NFC_WC_0: 'CHI', NFC_WC_1: 'SF', NFC_WC_2: 'LAR', AFC_DIV_0: 'DEN', AFC_DIV_1: 'NE', NFC_DIV_0: 'SEA', NFC_DIV_1: 'CHI', AFC_CHAMP: 'DEN', NFC_CHAMP: 'CHI', SUPER_BOWL: 'CHI' }, tiebreaker: 52, id: 'mike' },
+    { name: 'David K.', avatar: '🦬', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'BUF', AFC_WC_2: 'HOU', NFC_WC_0: 'CHI', NFC_WC_1: 'PHI', NFC_WC_2: 'CAR', AFC_DIV_0: 'DEN', AFC_DIV_1: 'BUF', NFC_DIV_0: 'CHI', NFC_DIV_1: 'CAR', AFC_CHAMP: 'BUF', NFC_CHAMP: 'CHI', SUPER_BOWL: 'BUF' }, tiebreaker: 44, id: 'david' },
+    { name: 'Jessica T.', avatar: '🏈', picks: { AFC_WC_0: 'LAC', AFC_WC_1: 'JAX', AFC_WC_2: 'PIT', NFC_WC_0: 'GB', NFC_WC_1: 'PHI', NFC_WC_2: 'LAR' }, tiebreaker: 38, id: 'jessica' },
+    { name: 'Emily W.', avatar: '⚡', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'JAX' }, tiebreaker: null, id: 'emily' },
+  ];
+
+  // Count matching picks
+  const countMatchingPicks = (picks1, picks2) => {
+    let matches = 0;
+    Object.keys(picks1).forEach(k => { if (picks1[k] === picks2[k]) matches++; });
+    return matches;
+  };
+
+  // Build bracket structure
+  const getBracket = useCallback(() => {
+    const getTeam = (team) => ({ t: team, s: SEEDS.AFC.find(s => s.team === team)?.seed || SEEDS.NFC.find(s => s.team === team)?.seed });
+    const wcGames = (conf) => [
+      { h: getTeam(SEEDS[conf][1].team), l: getTeam(SEEDS[conf][6].team), w: picks[`${conf}_WC_0`] },
+      { h: getTeam(SEEDS[conf][2].team), l: getTeam(SEEDS[conf][5].team), w: picks[`${conf}_WC_1`] },
+      { h: getTeam(SEEDS[conf][3].team), l: getTeam(SEEDS[conf][4].team), w: picks[`${conf}_WC_2`] },
+    ];
+    
+    const divGames = (conf) => {
+      const wcWinners = wcGames(conf).map(g => g.w ? getTeam(g.w) : null).filter(Boolean);
+      if (wcWinners.length < 3) return [{ h: null, l: null, w: picks[`${conf}_DIV_0`] }, { h: null, l: null, w: picks[`${conf}_DIV_1`] }];
+      const sorted = [...wcWinners].sort((a, b) => a.s - b.s);
+      const top = getTeam(SEEDS[conf][0].team);
+      return [
+        { h: top, l: sorted[2], w: picks[`${conf}_DIV_0`] },
+        { h: sorted[0], l: sorted[1], w: picks[`${conf}_DIV_1`] },
+      ];
+    };
+    
+    const champGame = (conf) => {
+      const dg = divGames(conf);
+      const w0 = dg[0].w ? getTeam(dg[0].w) : null;
+      const w1 = dg[1].w ? getTeam(dg[1].w) : null;
+      return { h: w0, l: w1, w: picks[`${conf}_CHAMP`] };
+    };
+    
+    const sb = () => {
+      const afc = champGame('AFC').w ? getTeam(champGame('AFC').w) : null;
+      const nfc = champGame('NFC').w ? getTeam(champGame('NFC').w) : null;
+      return { afc, nfc, w: picks.SUPER_BOWL };
+    };
+    
+    return {
+      AFC: { wc: wcGames('AFC'), div: divGames('AFC'), champ: champGame('AFC') },
+      NFC: { wc: wcGames('NFC'), div: divGames('NFC'), champ: champGame('NFC') },
+      sb: sb(),
+    };
+  }, [picks]);
+
+  const bracket = getBracket();
+
+  // Make a pick
+  const pick = (key, team) => {
+    if (isPastDeadline) return;
+    setPicks(p => {
+      const n = { ...p };
+      if (p[key] && p[key] !== team) {
+        const [c, r] = key.split('_');
+        if (r === 'WC') { delete n[`${c}_DIV_0`]; delete n[`${c}_DIV_1`]; delete n[`${c}_CHAMP`]; delete n.SUPER_BOWL; }
+        else if (r === 'DIV') { delete n[`${c}_CHAMP`]; delete n.SUPER_BOWL; }
+        else if (r === 'CHAMP') delete n.SUPER_BOWL;
+      }
+      n[key] = team;
+      return n;
+    });
+  };
+
+  // Team Logo Component with fallback
+  const TeamLogo = ({ team, size = 28, style = {} }) => {
+    const [error, setError] = useState(false);
+    const t = NFL_TEAMS[team];
+    if (!t) return null;
+    
+    if (error) {
+      return (
+        <div style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: `linear-gradient(135deg, ${t.color} 0%, ${t.color}dd 100%)`,
+          border: `2px solid ${t.color2}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'Oswald', sans-serif",
+          fontSize: size * 0.35,
+          fontWeight: 700,
+          color: '#fff',
+          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+          boxShadow: `0 2px 8px ${t.color}44`,
+          flexShrink: 0,
+          ...style
+        }}>
+          {t.abbr.substring(0, 2)}
+        </div>
+      );
+    }
+    
+    return (
+      <img 
+        src={t.logo} 
+        alt={t.name}
+        onError={() => setError(true)}
+        style={{ 
+          width: size, 
+          height: size, 
+          objectFit: 'contain',
+          flexShrink: 0,
+          ...style 
+        }} 
+      />
+    );
+  };
+
+  // NFL Shield Component with fallback
+  const NFLShieldLogo = ({ size = 40, style = {} }) => {
+    const [error, setError] = useState(false);
+    
+    if (error) {
+      return (
+        <div style={{
+          width: size,
+          height: size * 1.2,
+          background: 'linear-gradient(180deg, #013369 0%, #013369 50%, #D50A0A 50%, #D50A0A 100%)',
+          borderRadius: size * 0.15,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'Oswald', sans-serif",
+          fontSize: size * 0.25,
+          fontWeight: 700,
+          color: '#fff',
+          border: '2px solid #fff',
+          boxShadow: '0 4px 15px rgba(1,51,105,0.4)',
+          ...style
+        }}>
+          NFL
+        </div>
+      );
+    }
+    
+    return (
+      <img 
+        src={NFL_SHIELD} 
+        alt="NFL"
+        onError={() => setError(true)}
+        style={{ 
+          width: size, 
+          height: size * 1.2, 
+          objectFit: 'contain',
+          ...style 
+        }} 
+      />
+    );
+  };
+
+  // Team Component
+  const Team = ({ data, selected, onClick, disabled, isUpsetPick }) => {
+    if (!data) return (
+      <div style={styles.teamEmpty}>
+        <div style={styles.logoPlaceholder} />
+        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>TBD</span>
+      </div>
+    );
+    const t = NFL_TEAMS[data.t];
+    const clickable = onClick && !disabled;
+    return (
+      <div 
+        onClick={clickable ? onClick : undefined} 
+        style={{ 
+          ...styles.team, 
+          background: selected ? `linear-gradient(135deg, ${t.color}22, ${t.color}11)` : 'rgba(255,255,255,0.03)', 
+          border: selected ? `2px solid ${t.color}` : '2px solid transparent', 
+          cursor: clickable ? 'pointer' : 'default', 
+          opacity: disabled && !selected ? 0.5 : 1, 
+          transform: selected ? 'scale(1.02)' : 'scale(1)', 
+          boxShadow: selected ? `0 4px 16px ${t.color}33` : 'none' 
+        }}
+      >
+        <TeamLogo team={data.t} size={28} />
+        <span style={styles.seed}>{data.s}</span>
+        <span style={styles.name}>{t.city} {t.name}</span>
+        {isUpsetPick && selected && <span style={styles.upsetBadge} title="Upset Pick!">🔥</span>}
+        {selected && (
+          <div style={{ ...styles.check, background: t.color }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Matchup Component
+  const Matchup = ({ game, pickKey }) => {
+    const upsetPick = isUpset(game, game.w);
+    const confPts = confidence[pickKey];
+    const availableConf = getAvailableConfidence();
+    
+    return (
+      <div style={styles.matchup}>
+        <Team data={game.h} selected={game.w === game.h?.t} onClick={game.h && game.l ? () => pick(pickKey, game.h.t) : null} disabled={isPastDeadline} isUpsetPick={false} />
+        <div style={styles.vs}>VS</div>
+        <Team data={game.l} selected={game.w === game.l?.t} onClick={game.h && game.l ? () => pick(pickKey, game.l.t) : null} disabled={isPastDeadline} isUpsetPick={upsetPick} />
+        {game.w && showConfidence && (
+          <div style={styles.confRow}>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Confidence:</span>
+            <select 
+              value={confPts || ''} 
+              onChange={e => assignConfidence(pickKey, e.target.value ? parseInt(e.target.value) : null)} 
+              style={styles.confSelect}
+            >
+              <option value="">--</option>
+              {confPts && <option value={confPts}>{confPts}</option>}
+              {availableConf.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            {confPts && <span style={styles.confBadge}>{confPts} pts</span>}
+          </div>
+        )}
+        {upsetPick && <div style={styles.upsetTag}>🔥 UPSET</div>}
+      </div>
+    );
+  };
+
+  // Bye Team Component
+  const ByeTeam = ({ conf }) => {
+    const t = NFL_TEAMS[SEEDS[conf][0].team];
+    return (
+      <div style={styles.bye}>
+        <span style={styles.byeLabel}>👑 #1 Seed - First Round Bye</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+          <TeamLogo team={SEEDS[conf][0].team} size={28} />
+          <span style={{ fontWeight: 600, fontSize: 14 }}>{t.city} {t.name}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const leaderboard = [
+    ...mockUsers,
+    ...(userName ? [{ name: userName + ' (You)', avatar: userAvatar, picks: picks, tiebreaker: tiebreaker ? parseInt(tiebreaker) : null, isYou: true, id: 'you' }] : []),
+  ].sort((a, b) => Object.keys(b.picks).length - Object.keys(a.picks).length);
+
+  // JOIN SCREEN
+  if (view === 'join') return (
+    <div style={styles.joinWrap}>
+      {/* Animated background orbs */}
+      <div style={{ position: 'fixed', top: '10%', left: '10%', width: 300, height: 300, background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(40px)', animation: 'float 6s ease-in-out infinite' }} />
+      <div style={{ position: 'fixed', bottom: '10%', right: '10%', width: 400, height: 400, background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(50px)', animation: 'float 8s ease-in-out infinite reverse' }} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 500, height: 500, background: 'radial-gradient(circle, rgba(255,215,0,0.05) 0%, transparent 60%)', borderRadius: '50%', filter: 'blur(60px)' }} />
+      
+      <div style={styles.joinCard}>
+        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 24 }}>
+          <div className="float">
+            <NFLShieldLogo size={80} />
+          </div>
+          <div style={{ position: 'absolute', inset: -20, background: 'radial-gradient(circle, rgba(255,215,0,0.2) 0%, transparent 70%)', borderRadius: '50%', zIndex: -1 }} />
+        </div>
+        
+        <h1 style={styles.title}>NFL Playoffs 2026</h1>
+        <p style={styles.subtitle}>Super Bowl LX • Levi's Stadium • Feb 8</p>
+        
+        {/* Playoff teams preview */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+          {['DEN', 'NE', 'JAX', 'SEA', 'CHI', 'PHI', 'LAR'].map(t => (
+            <div key={t} style={{ transition: 'transform 0.2s', cursor: 'default' }} 
+                 onMouseOver={e => e.currentTarget.style.transform = 'scale(1.15)'} 
+                 onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
+              <TeamLogo team={t} size={36} />
+            </div>
+          ))}
+        </div>
+        
+        <input 
+          type="text" 
+          placeholder="Enter your name" 
+          value={userName} 
+          onChange={e => setUserName(e.target.value)} 
+          onKeyPress={e => e.key === 'Enter' && userName.trim() && setView('bracket')} 
+          style={styles.input} 
+        />
+        
+        <div style={styles.avatarPicker}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Choose your avatar</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+            {AVATARS.map(a => (
+              <button 
+                key={a} 
+                onClick={() => setUserAvatar(a)} 
+                style={{ 
+                  ...styles.avatarBtn, 
+                  border: userAvatar === a ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.1)', 
+                  background: userAvatar === a ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)', 
+                  transform: userAvatar === a ? 'scale(1.1)' : 'scale(1)',
+                  boxShadow: userAvatar === a ? '0 0 20px rgba(59,130,246,0.4)' : 'none'
+                }}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <button 
+          disabled={!userName.trim()} 
+          onClick={() => setView('bracket')} 
+          style={{ ...styles.joinBtn, opacity: userName.trim() ? 1 : 0.5, cursor: userName.trim() ? 'pointer' : 'not-allowed' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            🏈 Enter Bracket
+          </span>
+        </button>
+        
+        <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{countdown} until lock</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  // LEADERBOARD
+  if (view === 'leaderboard') return (
+    <div style={styles.app}>
+      <header style={styles.header}>
+        <div style={styles.headerInner}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NFLShieldLogo size={36} />
+            <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 20, fontWeight: 700 }}>NFL Playoffs 2026</h1>
+          </div>
+          <button onClick={() => setView('bracket')} style={styles.headerBtn}>📋 My Bracket</button>
+        </div>
+      </header>
+      
+      <main style={{ padding: 24, maxWidth: 700, margin: '0 auto' }}>
+        <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 28, textAlign: 'center', marginBottom: 20 }}>🏆 Leaderboard</h2>
+        
+        {/* Head-to-head comparison */}
+        {compareUser && userName && (
+          <div style={styles.h2hCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600 }}>Head-to-Head vs {compareUser.name}</h3>
+              <button onClick={() => setCompareUser(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 18 }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 16, alignItems: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: 32 }}>{userAvatar}</span>
+                <p style={{ fontSize: 12, marginTop: 4 }}>You</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#ffd700' }}>{countMatchingPicks(picks, compareUser.picks)}/13</div>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Matching Picks</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: 32 }}>{compareUser.avatar}</span>
+                <p style={{ fontSize: 12, marginTop: 4 }}>{compareUser.name}</p>
+              </div>
+            </div>
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Pick Comparison</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+                {Object.keys(picks).map(k => {
+                  const yourPick = picks[k];
+                  const theirPick = compareUser.picks[k];
+                  const match = yourPick === theirPick;
+                  return (
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: match ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', borderRadius: 6, fontSize: 11 }}>
+                      <TeamLogo team={yourPick} size={18} />
+                      <span>{match ? '=' : '≠'}</span>
+                      {theirPick ? <TeamLogo team={theirPick} size={18} /> : <span style={{ color: 'rgba(255,255,255,0.3)' }}>--</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {leaderboard.map((u, i) => {
+            const pickCount = Object.keys(u.picks).length;
+            const champTeam = u.picks.SUPER_BOWL;
+            return (
+              <div key={u.id || u.name} style={{ ...styles.lbRow, background: u.isYou ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.1))' : 'rgba(255,255,255,0.04)', border: u.isYou ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+                <span style={styles.lbRank}>{i + 1}</span>
+                <span style={{ fontSize: 24 }}>{u.avatar}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                    {pickCount}/13 picks {u.tiebreaker && `• TB: ${u.tiebreaker}`}
+                  </div>
+                </div>
+                {champTeam && <TeamLogo team={champTeam} size={28} />}
+                {!u.isYou && userName && (
+                  <button onClick={() => setCompareUser(u)} style={styles.compareBtn} title="Compare picks">⚔️</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 32, padding: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
+          <h3 style={{ fontSize: 14, marginBottom: 12, color: 'rgba(255,255,255,0.7)' }}>Scoring (When Games Complete)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[['Wild Card', '1 pt × conf'], ['Divisional', '2 pts × conf'], ['Conference', '4 pts × conf'], ['Super Bowl', '8 pts']].map(([r, p]) => (
+              <div key={r} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 13 }}>
+                <span>{r}</span><span style={{ fontWeight: 600, color: '#ffd700' }}>{p}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12, textAlign: 'center' }}>With confidence points: multiply round score × your assigned confidence value</p>
+        </div>
+      </main>
+    </div>
+  );
+
+  // BRACKET VIEW
+  return (
+    <div style={styles.app}>
+      <header style={styles.header} className="no-print">
+        <div style={styles.headerInner}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NFLShieldLogo size={36} />
+            <div>
+              <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 20, fontWeight: 700, margin: 0 }}>NFL Playoffs 2026</h1>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{userName}'s Bracket</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => setView('leaderboard')} style={styles.headerBtn}>🏆 Leaderboard</button>
+            <button 
+              onClick={() => setShowConfidence(!showConfidence)} 
+              style={{ ...styles.headerBtn, background: showConfidence ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)', borderColor: showConfidence ? '#22c55e' : 'rgba(255,255,255,0.1)' }}
+            >
+              {showConfidence ? '✓' : '🎯'} Confidence
+            </button>
+            <button onClick={printBracket} style={styles.headerBtn}>🖨️ Print</button>
+            <button 
+              onClick={() => { navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); }} 
+              style={{ ...styles.headerBtn, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
+            >
+              {copied ? '✓ Copied!' : '🔗 Share'}
+            </button>
+            <div style={styles.badge}>
+              <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: isPastDeadline ? '#ef4444' : '#f59e0b' }} />
+              {countdown}
+            </div>
+            <div style={{ ...styles.badge, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(Object.keys(picks).length / 13) * 100}%`, background: isComplete ? 'linear-gradient(90deg, rgba(34,197,94,0.3), rgba(34,197,94,0.1))' : 'linear-gradient(90deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))', transition: 'width 0.3s ease' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isComplete ? '#22c55e' : '#f59e0b', position: 'relative' }} />
+              <span style={{ position: 'relative' }}>{Object.keys(picks).length}/13</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main style={styles.bracketMain}>
+        <div style={styles.bracketGrid} className="bracket-grid">
+          {/* AFC */}
+          <div>
+            <div style={styles.confHeader}>
+              <div style={{ ...styles.confDot, background: 'linear-gradient(135deg, #d50a0a, #ff4444)', boxShadow: '0 0 12px rgba(213,10,10,0.5)' }} />
+              <h2 style={{ ...styles.confTitle, background: 'linear-gradient(135deg, #fff, #ff8888)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AFC</h2>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>American Football Conference</span>
+            </div>
+            <div style={styles.rounds}>
+              <div>
+                <h3 style={styles.roundTitle}>🎯 Wild Card</h3>
+                {bracket.AFC.wc.map((g, i) => <Matchup key={i} game={g} pickKey={`AFC_WC_${i}`} />)}
+              </div>
+              <div>
+                <h3 style={styles.roundTitle}>⚔️ Divisional</h3>
+                <ByeTeam conf="AFC" />
+                {bracket.AFC.div.map((g, i) => <Matchup key={i} game={g} pickKey={`AFC_DIV_${i}`} />)}
+              </div>
+              <div>
+                <h3 style={styles.roundTitle}>👑 AFC Championship</h3>
+                <Matchup game={bracket.AFC.champ} pickKey="AFC_CHAMP" />
+              </div>
+            </div>
+          </div>
+
+          {/* Super Bowl */}
+          <div style={styles.sbWrap}>
+            <div style={{ position: 'absolute', top: 20, width: 200, height: 200, background: 'radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(30px)', pointerEvents: 'none' }} />
+            
+            <div style={styles.sbHeader}>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <span className="float" style={{ fontSize: 56, display: 'block', filter: 'drop-shadow(0 4px 20px rgba(255,215,0,0.5))' }}>🏆</span>
+              </div>
+              <h2 style={styles.sbTitle}>Super Bowl LX</h2>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>Levi's Stadium • Santa Clara • Feb 8</p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+                <span style={{ fontSize: 11, padding: '4px 12px', background: 'rgba(213,10,10,0.2)', borderRadius: 20, color: '#ff6b6b' }}>AFC Champion</span>
+                <span style={{ fontSize: 11, padding: '4px 12px', background: 'rgba(0,53,148,0.2)', borderRadius: 20, color: '#6b9fff' }}>NFC Champion</span>
+              </div>
+            </div>
+            
+            <div style={{ ...styles.sbMatchup, position: 'relative', overflow: 'hidden' }}>
+              <div className="shimmer" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit' }} />
+              <Team data={bracket.sb.afc} selected={bracket.sb.w === bracket.sb.afc?.t} onClick={bracket.sb.afc && bracket.sb.nfc ? () => pick('SUPER_BOWL', bracket.sb.afc.t) : null} disabled={isPastDeadline} />
+              <div style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'rgba(255,215,0,0.6)', letterSpacing: '0.2em', padding: '10px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <span style={{ width: 30, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.5))' }} />
+                VS
+                <span style={{ width: 30, height: 1, background: 'linear-gradient(90deg, rgba(255,215,0,0.5), transparent)' }} />
+              </div>
+              <Team data={bracket.sb.nfc} selected={bracket.sb.w === bracket.sb.nfc?.t} onClick={bracket.sb.afc && bracket.sb.nfc ? () => pick('SUPER_BOWL', bracket.sb.nfc.t) : null} disabled={isPastDeadline} />
+            </div>
+            
+            {bracket.sb.w && (
+              <div style={{ ...styles.champion, position: 'relative', overflow: 'hidden' }}>
+                <div className="shimmer" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 10 }}>🏆 Your Champion 🏆</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                  <TeamLogo team={bracket.sb.w} size={48} />
+                  <span style={{ fontFamily: "'Oswald', sans-serif", fontSize: 24, background: 'linear-gradient(135deg, #ffd700, #ffed4a, #ffd700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{NFL_TEAMS[bracket.sb.w].city} {NFL_TEAMS[bracket.sb.w].name}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Tiebreaker */}
+            <div style={styles.tiebreaker}>
+              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, display: 'block' }}>Tiebreaker: Total Points in Super Bowl</label>
+              <input 
+                type="number" 
+                placeholder="e.g. 47" 
+                value={tiebreaker} 
+                onChange={e => setTiebreaker(e.target.value)} 
+                min="0" 
+                max="200" 
+                style={styles.tiebreakerInput} 
+              />
+              {tiebreaker && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Closest to actual without going over wins</p>}
+            </div>
+          </div>
+
+          {/* NFC */}
+          <div>
+            <div style={{ ...styles.confHeader, justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginRight: 'auto' }}>National Football Conference</span>
+              <h2 style={{ ...styles.confTitle, background: 'linear-gradient(135deg, #fff, #88aaff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>NFC</h2>
+              <div style={{ ...styles.confDot, background: 'linear-gradient(135deg, #003594, #4477ff)', boxShadow: '0 0 12px rgba(0,53,148,0.5)' }} />
+            </div>
+            <div style={{ ...styles.rounds, direction: 'rtl' }}>
+              <div style={{ direction: 'ltr' }}>
+                <h3 style={{ ...styles.roundTitle, textAlign: 'right' }}>🎯 Wild Card</h3>
+                {bracket.NFC.wc.map((g, i) => <Matchup key={i} game={g} pickKey={`NFC_WC_${i}`} />)}
+              </div>
+              <div style={{ direction: 'ltr' }}>
+                <h3 style={{ ...styles.roundTitle, textAlign: 'right' }}>⚔️ Divisional</h3>
+                <ByeTeam conf="NFC" />
+                {bracket.NFC.div.map((g, i) => <Matchup key={i} game={g} pickKey={`NFC_DIV_${i}`} />)}
+              </div>
+              <div style={{ direction: 'ltr' }}>
+                <h3 style={{ ...styles.roundTitle, textAlign: 'right' }}>👑 NFC Championship</h3>
+                <Matchup game={bracket.NFC.champ} pickKey="NFC_CHAMP" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Completion Overlay */}
+      {showComplete && (
+        <div style={styles.overlay}>
+          <div style={styles.completeBox}>
+            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+              {[...Array(20)].map((_, i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  width: 8 + Math.random() * 8,
+                  height: 8 + Math.random() * 8,
+                  background: ['#ffd700', '#ff6b35', '#3b82f6', '#22c55e', '#8b5cf6'][i % 5],
+                  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `float ${2 + Math.random() * 2}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  opacity: 0.6,
+                }} />
+              ))}
+            </div>
+            <div className="float" style={{ fontSize: 120, marginBottom: 20, filter: 'drop-shadow(0 0 40px rgba(255,215,0,0.6))' }}>🏆</div>
+            <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 48, background: 'linear-gradient(135deg, #ffd700, #ffed4a, #ffd700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 8 }}>Bracket Complete!</h2>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>Good luck, {userName}! 🍀</p>
+            {bracket.sb.w && (
+              <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '12px 24px', background: 'rgba(255,215,0,0.1)', borderRadius: 12, border: '1px solid rgba(255,215,0,0.3)' }}>
+                <TeamLogo team={bracket.sb.w} size={36} />
+                <span style={{ fontFamily: "'Oswald', sans-serif", fontSize: 18, color: '#ffd700' }}>Champion: {NFL_TEAMS[bracket.sb.w].name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Styles
+const styles = {
+  app: { minHeight: '100vh', background: 'linear-gradient(145deg, #0a0e14, #111827, #0f172a)', fontFamily: "'Inter', -apple-system, sans-serif", color: '#e5e7eb' },
+  joinWrap: { minHeight: '100vh', background: 'linear-gradient(145deg, #0a0e14, #111827, #0f172a)', fontFamily: "'Inter', -apple-system, sans-serif", color: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, position: 'relative', overflow: 'hidden' },
+  joinCard: { background: 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))', borderRadius: 24, padding: 48, border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', maxWidth: 440, width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 },
+  title: { fontFamily: "'Oswald', sans-serif", fontSize: 36, fontWeight: 700, margin: 0, background: 'linear-gradient(135deg, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  subtitle: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 4, marginBottom: 32 },
+  input: { width: '100%', padding: '16px 20px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#e5e7eb', fontSize: 16, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 20 },
+  avatarPicker: { marginBottom: 20 },
+  avatarBtn: { width: 44, height: 44, borderRadius: 10, fontSize: 20, cursor: 'pointer', transition: 'all 0.2s' },
+  joinBtn: { width: '100%', padding: 16, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', fontSize: 16, fontWeight: 600, boxShadow: '0 8px 32px rgba(59,130,246,0.3)', cursor: 'pointer' },
+  header: { position: 'sticky', top: 0, background: 'rgba(10,14,20,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '12px 24px', zIndex: 100 },
+  headerInner: { maxWidth: 1600, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
+  headerBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#e5e7eb', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
+  badge: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 13, fontWeight: 500 },
+  bracketMain: { padding: 24, overflowX: 'auto' },
+  bracketGrid: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, maxWidth: 1600, margin: '0 auto', minWidth: 1100 },
+  confHeader: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.08)' },
+  confDot: { width: 14, height: 14, borderRadius: '50%' },
+  confTitle: { fontFamily: "'Oswald', sans-serif", fontSize: 28, fontWeight: 700, margin: 0 },
+  rounds: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 },
+  roundTitle: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 },
+  matchup: { background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', borderRadius: 14, padding: 10, border: '1px solid rgba(255,255,255,0.08)', marginBottom: 10 },
+  vs: { textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', padding: '2px 0' },
+  team: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, transition: 'all 0.2s' },
+  teamEmpty: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, height: 44 },
+  logoPlaceholder: { width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.05)' },
+  seed: { background: 'rgba(255,255,255,0.1)', padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' },
+  name: { fontSize: 13, fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  check: { width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  upsetBadge: { fontSize: 14, marginLeft: 4 },
+  upsetTag: { marginTop: 6, fontSize: 10, fontWeight: 700, color: '#f97316', textAlign: 'center', letterSpacing: '0.05em' },
+  confRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 },
+  confSelect: { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, padding: '2px 6px', color: '#e5e7eb', fontSize: 11, cursor: 'pointer' },
+  confBadge: { background: 'linear-gradient(135deg, #22c55e, #16a34a)', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: 'white' },
+  bye: { background: 'linear-gradient(180deg, rgba(255,215,0,0.08), rgba(255,215,0,0.02))', borderRadius: 12, padding: 10, border: '1px solid rgba(255,215,0,0.2)', marginBottom: 10 },
+  byeLabel: { display: 'block', fontSize: 10, fontWeight: 600, color: 'rgba(255,215,0,0.7)', textTransform: 'uppercase', marginBottom: 6, textAlign: 'center' },
+  sbWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40, position: 'relative' },
+  sbHeader: { textAlign: 'center', marginBottom: 20 },
+  sbTitle: { fontFamily: "'Oswald', sans-serif", fontSize: 28, fontWeight: 700, margin: 0, background: 'linear-gradient(135deg, #ffd700, #ffed4a)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  sbMatchup: { background: 'linear-gradient(180deg, rgba(255,215,0,0.12), rgba(255,215,0,0.04))', borderRadius: 20, padding: 16, border: '2px solid rgba(255,215,0,0.25)', boxShadow: '0 8px 48px rgba(255,215,0,0.1)', width: 300 },
+  champion: { marginTop: 20, padding: '16px 24px', background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05))', borderRadius: 12, textAlign: 'center' },
+  tiebreaker: { marginTop: 20, padding: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, textAlign: 'center' },
+  tiebreakerInput: { width: 100, padding: '10px 16px', borderRadius: 8, border: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#e5e7eb', fontSize: 18, fontWeight: 700, textAlign: 'center', outline: 'none', fontFamily: 'inherit' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  completeBox: { textAlign: 'center', animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)', position: 'relative' },
+  lbRow: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, transition: 'all 0.2s' },
+  lbRank: { width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 },
+  compareBtn: { width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  h2hCard: { background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1))', borderRadius: 16, padding: 20, border: '1px solid rgba(139,92,246,0.2)', marginBottom: 24 },
+};
