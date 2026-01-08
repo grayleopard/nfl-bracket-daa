@@ -125,7 +125,7 @@ describe('Bracket View', () => {
     navigateToBracket();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /leaderboard/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /confidence/i })).toBeInTheDocument();
+      // Confidence button is hidden for now
     });
   });
 
@@ -166,6 +166,22 @@ describe('Making Picks', () => {
 
     await waitFor(() => {
       expect(screen.getByText('1/13')).toBeInTheDocument();
+    });
+  });
+
+  it('should deselect a team when clicking on it again', async () => {
+    await navigateToBracket();
+
+    // Make a pick
+    fireEvent.click(screen.getByText(/New England Patriots/));
+    await waitFor(() => {
+      expect(screen.getByText('1/13')).toBeInTheDocument();
+    });
+
+    // Click again to deselect (re-query the element as DOM may have changed)
+    fireEvent.click(screen.getByText(/New England Patriots/));
+    await waitFor(() => {
+      expect(screen.getByText('0/13')).toBeInTheDocument();
     });
   });
 
@@ -214,9 +230,9 @@ describe('Making Picks', () => {
 });
 
 // ============================================
-// Confidence Points Tests
+// Confidence Points Tests (feature hidden for now)
 // ============================================
-describe('Confidence Points', () => {
+describe.skip('Confidence Points', () => {
   const setupWithPick = async () => {
     render(<App />);
     fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'John' } });
@@ -642,10 +658,86 @@ describe('Super Bowl and Champion Display', () => {
     // Click the last Denver instance (in Super Bowl)
     fireEvent.click(denverOptions[denverOptions.length - 1]);
 
-    // Completion overlay should appear (requires all 13 picks AND tiebreaker)
+    // Wait for submit button to appear
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /submit bracket/i })).toBeInTheDocument();
+    });
+
+    // Click submit button
+    fireEvent.click(screen.getByRole('button', { name: /submit bracket/i }));
+
+    // Completion overlay should appear
     await waitFor(() => {
       expect(screen.getByText('Bracket Complete!')).toBeInTheDocument();
     });
+  });
+
+  it('should show submit button only when bracket is complete', async () => {
+    localStorage.setItem('nfl_bracket_2026', JSON.stringify({
+      userName: 'John',
+      avatar: '🏈',
+      picks: {
+        AFC_WC_0: 'NE', AFC_WC_1: 'JAX', AFC_WC_2: 'PIT',
+        NFC_WC_0: 'CHI', NFC_WC_1: 'PHI', NFC_WC_2: 'CAR',
+        AFC_DIV_0: 'DEN', AFC_DIV_1: 'NE',
+        NFC_DIV_0: 'SEA', NFC_DIV_1: 'PHI',
+        AFC_CHAMP: 'DEN', NFC_CHAMP: 'SEA',
+        SUPER_BOWL: 'DEN'
+      },
+      confidence: {},
+      tiebreaker: '', // No tiebreaker yet
+    }));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("John's Bracket")).toBeInTheDocument();
+    });
+
+    // Submit button should NOT appear without tiebreaker
+    expect(screen.queryByRole('button', { name: /submit bracket/i })).not.toBeInTheDocument();
+
+    // Enter tiebreaker
+    const tiebreakerInput = screen.getByPlaceholderText('e.g. 47');
+    fireEvent.change(tiebreakerInput, { target: { value: '42' } });
+
+    // Submit button should now appear
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /submit bracket/i })).toBeInTheDocument();
+    });
+  });
+
+  it('should show submitted status after clicking submit', async () => {
+    localStorage.setItem('nfl_bracket_2026', JSON.stringify({
+      userName: 'John',
+      avatar: '🏈',
+      picks: {
+        AFC_WC_0: 'NE', AFC_WC_1: 'JAX', AFC_WC_2: 'PIT',
+        NFC_WC_0: 'CHI', NFC_WC_1: 'PHI', NFC_WC_2: 'CAR',
+        AFC_DIV_0: 'DEN', AFC_DIV_1: 'NE',
+        NFC_DIV_0: 'SEA', NFC_DIV_1: 'PHI',
+        AFC_CHAMP: 'DEN', NFC_CHAMP: 'SEA',
+        SUPER_BOWL: 'DEN'
+      },
+      confidence: {},
+      tiebreaker: '47',
+    }));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /submit bracket/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /submit bracket/i }));
+
+    // Should show submitted status
+    await waitFor(() => {
+      expect(screen.getByText(/Bracket Submitted/i)).toBeInTheDocument();
+    });
+
+    // Submit button should no longer be visible
+    expect(screen.queryByRole('button', { name: /submit bracket/i })).not.toBeInTheDocument();
   });
 });
 

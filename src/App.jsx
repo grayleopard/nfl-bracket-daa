@@ -87,6 +87,7 @@ export default function App() {
   const [picks, setPicks] = useState({});
   const [confidence, setConfidence] = useState({});
   const [tiebreaker, setTiebreaker] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [isPastDeadline, setIsPastDeadline] = useState(false);
   const [countdown, setCountdown] = useState('');
@@ -126,6 +127,7 @@ export default function App() {
           setPicks(d.picks || {});
           setConfidence(d.confidence || {});
           setTiebreaker(d.tiebreaker || '');
+          setSubmitted(d.submitted || false);
           setView('bracket');
         }
       } catch (e) {}
@@ -141,21 +143,24 @@ export default function App() {
         picks,
         confidence,
         tiebreaker,
+        submitted,
         updatedAt: new Date().toISOString()
       }));
     }
-  }, [userName, userAvatar, picks, confidence, tiebreaker, view]);
+  }, [userName, userAvatar, picks, confidence, tiebreaker, submitted, view]);
 
   const picksComplete = Object.keys(picks).length === 13;
   const tiebreakerFilled = tiebreaker !== '' && !isNaN(parseInt(tiebreaker));
   const isComplete = picksComplete && tiebreakerFilled;
 
-  useEffect(() => {
-    if (isComplete && !showComplete) {
+  // Submit bracket handler
+  const handleSubmit = () => {
+    if (isComplete && !submitted) {
+      setSubmitted(true);
       setShowComplete(true);
       setTimeout(() => setShowComplete(false), 3500);
     }
-  }, [isComplete]);
+  };
 
   // Check if a pick is an upset
   const isUpset = (game, winner) => {
@@ -238,13 +243,23 @@ export default function App() {
 
   const bracket = getBracket();
 
-  // Make a pick
+  // Make a pick (click again to deselect)
   const pick = (key, team) => {
     if (isPastDeadline) return;
     setPicks(p => {
       const n = { ...p };
+      const [c, r] = key.split('_');
+      // Deselect if clicking the same team
+      if (p[key] === team) {
+        delete n[key];
+        // Clear dependent picks
+        if (r === 'WC') { delete n[`${c}_DIV_0`]; delete n[`${c}_DIV_1`]; delete n[`${c}_CHAMP`]; delete n.SUPER_BOWL; }
+        else if (r === 'DIV') { delete n[`${c}_CHAMP`]; delete n.SUPER_BOWL; }
+        else if (r === 'CHAMP') delete n.SUPER_BOWL;
+        return n;
+      }
+      // Clear dependent picks if changing selection
       if (p[key] && p[key] !== team) {
-        const [c, r] = key.split('_');
         if (r === 'WC') { delete n[`${c}_DIV_0`]; delete n[`${c}_DIV_1`]; delete n[`${c}_CHAMP`]; delete n.SUPER_BOWL; }
         else if (r === 'DIV') { delete n[`${c}_CHAMP`]; delete n.SUPER_BOWL; }
         else if (r === 'CHAMP') delete n.SUPER_BOWL;
@@ -732,6 +747,35 @@ export default function App() {
               {tiebreaker && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Closest to actual without going over wins</p>}
               {picksComplete && !tiebreakerFilled && <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>⚠️ Required to complete bracket</p>}
             </div>
+
+            {/* Submit Button */}
+            {isComplete && !submitted && !isPastDeadline && (
+              <button
+                onClick={handleSubmit}
+                style={{
+                  marginTop: 24,
+                  padding: '16px 48px',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  fontFamily: "'Oswald', sans-serif",
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(34,197,94,0.4)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                🏆 Submit Bracket
+              </button>
+            )}
+            {submitted && (
+              <div style={{ marginTop: 24, padding: '12px 24px', background: 'rgba(34,197,94,0.1)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.3)' }}>
+                <p style={{ color: '#22c55e', fontSize: 14, fontWeight: 600 }}>✓ Bracket Submitted!</p>
+              </div>
+            )}
           </div>
 
           {/* NFC */}

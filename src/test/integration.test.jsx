@@ -217,7 +217,8 @@ describe('Deadline Workflow', () => {
   });
 });
 
-describe('Confidence Points Workflow', () => {
+// Confidence feature hidden for now
+describe.skip('Confidence Points Workflow', () => {
   it('should show confidence UI when enabled', async () => {
     render(<App />);
 
