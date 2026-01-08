@@ -92,8 +92,9 @@ describe('Bracket View', () => {
   it('should display AFC and NFC sections', async () => {
     navigateToBracket();
     await waitFor(() => {
-      expect(screen.getByText('AFC')).toBeInTheDocument();
-      expect(screen.getByText('NFC')).toBeInTheDocument();
+      // AFC and NFC appear in both mobile tabs and section headers
+      expect(screen.getAllByText('AFC').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('NFC').length).toBeGreaterThan(0);
     });
   });
 
@@ -125,8 +126,6 @@ describe('Bracket View', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /leaderboard/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /confidence/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /print/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
     });
   });
 
@@ -458,60 +457,6 @@ describe('Tiebreaker', () => {
   });
 });
 
-// ============================================
-// Share Functionality Tests
-// ============================================
-describe('Share Functionality', () => {
-  it('should copy link to clipboard when share clicked', async () => {
-    render(<App />);
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'John' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("John's Bracket")).toBeInTheDocument();
-    });
-
-    const shareBtn = screen.getByRole('button', { name: /share/i });
-    fireEvent.click(shareBtn);
-
-    expect(navigator.clipboard.writeText).toHaveBeenCalled();
-  });
-
-  it('should show copied feedback', async () => {
-    render(<App />);
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'John' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("John's Bracket")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /share/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/Copied!/)).toBeInTheDocument();
-    });
-  });
-});
-
-// ============================================
-// Print Functionality Tests
-// ============================================
-describe('Print Functionality', () => {
-  it('should call window.print when print clicked', async () => {
-    render(<App />);
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'John' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("John's Bracket")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /print/i }));
-
-    expect(window.print).toHaveBeenCalled();
-  });
-});
 
 // ============================================
 // Team Display Tests
@@ -670,7 +615,7 @@ describe('Super Bowl and Champion Display', () => {
   });
 
   it('should show completion overlay for complete bracket', async () => {
-    // Start with 12 picks, then make the last one
+    // Start with 12 picks and tiebreaker, then make the last pick
     localStorage.setItem('nfl_bracket_2026', JSON.stringify({
       userName: 'John',
       avatar: '🏈',
@@ -682,7 +627,7 @@ describe('Super Bowl and Champion Display', () => {
         AFC_CHAMP: 'DEN', NFC_CHAMP: 'SEA'
       },
       confidence: {},
-      tiebreaker: '',
+      tiebreaker: '47',
     }));
 
     render(<App />);
@@ -697,7 +642,7 @@ describe('Super Bowl and Champion Display', () => {
     // Click the last Denver instance (in Super Bowl)
     fireEvent.click(denverOptions[denverOptions.length - 1]);
 
-    // Completion overlay should appear
+    // Completion overlay should appear (requires all 13 picks AND tiebreaker)
     await waitFor(() => {
       expect(screen.getByText('Bracket Complete!')).toBeInTheDocument();
     });

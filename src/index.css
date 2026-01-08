@@ -66,10 +66,118 @@ button:active {
   }
 }
 
-/* Responsive */
+/* Mobile Tabs - Hidden on desktop */
+.mobile-tabs {
+  display: none;
+}
+
+/* Responsive - Tablet (stacks vertically but no tabs yet) */
 @media (max-width: 1200px) {
   .bracket-grid {
     grid-template-columns: 1fr !important;
     min-width: unset !important;
+    gap: 32px !important;
+  }
+}
+
+/* Responsive - Mobile (tabs enabled) */
+@media (max-width: 768px) {
+  /* Show mobile tabs */
+  .mobile-tabs {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 99;
+    background: rgba(10, 14, 20, 0.98);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0;
+  }
+
+  .mobile-tabs button {
+    flex: 1;
+    padding: 14px 8px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-tabs button.active {
+    color: #ffd700;
+    border-bottom-color: #ffd700;
+    background: rgba(255, 215, 0, 0.05);
+  }
+
+  .mobile-tabs button:not(.active):hover {
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Hide header on mobile - tab bar replaces it visually */
+  header {
+    position: relative !important;
+  }
+
+  header > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  header > div > div:first-child {
+    justify-content: center !important;
+  }
+
+  header > div > div:last-child {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+
+  /* Bracket grid becomes block for tab switching */
+  .bracket-grid {
+    display: block !important;
+    padding: 16px !important;
+  }
+
+  /* Hide all sections by default on mobile */
+  .bracket-section {
+    display: none !important;
+  }
+
+  /* Show only the active section */
+  .bracket-section.active {
+    display: block !important;
+  }
+
+  /* Fix NFC direction on mobile */
+  .bracket-nfc > div:last-child {
+    direction: ltr !important;
+  }
+
+  .bracket-nfc h3 {
+    text-align: left !important;
+  }
+}
+
+/* Responsive - Mobile Portrait */
+@media (max-width: 480px) {
+  .bracket-grid {
+    padding: 12px !important;
+  }
+
+  header {
+    padding: 12px 16px !important;
+  }
+
+  .mobile-tabs button {
+    padding: 12px 4px;
+    font-size: 13px;
   }
 }

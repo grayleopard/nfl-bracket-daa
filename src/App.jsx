@@ -77,6 +77,7 @@ const SEEDS = {
 const DEADLINE = new Date('2026-01-10T13:00:00-08:00');
 const AVATARS = ['🏈', '🦅', '🐻', '🐆', '🦁', '🐴', '🦬', '⚡', '🏴‍☠️', '🧀', '🌊', '⭐'];
 const CONFIDENCE_POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+const SELECTION_COLOR = '#ffd700'; // Gold - uniform selection highlight color
 
 export default function App() {
   const [view, setView] = useState('join');
@@ -88,9 +89,9 @@ export default function App() {
   const [showComplete, setShowComplete] = useState(false);
   const [isPastDeadline, setIsPastDeadline] = useState(false);
   const [countdown, setCountdown] = useState('');
-  const [copied, setCopied] = useState(false);
   const [compareUser, setCompareUser] = useState(null);
   const [showConfidence, setShowConfidence] = useState(false);
+  const [mobileTab, setMobileTab] = useState('AFC');
 
   // Countdown timer
   useEffect(() => {
@@ -144,8 +145,10 @@ export default function App() {
     }
   }, [userName, userAvatar, picks, confidence, tiebreaker, view]);
 
-  const isComplete = Object.keys(picks).length === 13;
-  
+  const picksComplete = Object.keys(picks).length === 13;
+  const tiebreakerFilled = tiebreaker !== '' && !isNaN(parseInt(tiebreaker));
+  const isComplete = picksComplete && tiebreakerFilled;
+
   useEffect(() => {
     if (isComplete && !showComplete) {
       setShowComplete(true);
@@ -175,9 +178,6 @@ export default function App() {
       return n;
     });
   };
-
-  // Print bracket
-  const printBracket = () => window.print();
 
   // Mock users for leaderboard
   const mockUsers = [
@@ -353,16 +353,16 @@ export default function App() {
     const t = NFL_TEAMS[data.t];
     const clickable = onClick && !disabled;
     return (
-      <div 
-        onClick={clickable ? onClick : undefined} 
-        style={{ 
-          ...styles.team, 
-          background: selected ? `linear-gradient(135deg, ${t.color}22, ${t.color}11)` : 'rgba(255,255,255,0.03)', 
-          border: selected ? `2px solid ${t.color}` : '2px solid transparent', 
-          cursor: clickable ? 'pointer' : 'default', 
-          opacity: disabled && !selected ? 0.5 : 1, 
-          transform: selected ? 'scale(1.02)' : 'scale(1)', 
-          boxShadow: selected ? `0 4px 16px ${t.color}33` : 'none' 
+      <div
+        onClick={clickable ? onClick : undefined}
+        style={{
+          ...styles.team,
+          background: selected ? `linear-gradient(135deg, ${SELECTION_COLOR}22, ${SELECTION_COLOR}11)` : 'rgba(255,255,255,0.03)',
+          border: selected ? `2px solid ${SELECTION_COLOR}` : '2px solid transparent',
+          cursor: clickable ? 'pointer' : 'default',
+          opacity: disabled && !selected ? 0.5 : 1,
+          transform: selected ? 'scale(1.02)' : 'scale(1)',
+          boxShadow: selected ? `0 4px 16px ${SELECTION_COLOR}33` : 'none'
         }}
       >
         <TeamLogo team={data.t} size={28} />
@@ -370,7 +370,7 @@ export default function App() {
         <span style={styles.name}>{t.city} {t.name}</span>
         {isUpsetPick && selected && <span style={styles.upsetBadge} title="Upset Pick!">🔥</span>}
         {selected && (
-          <div style={{ ...styles.check, background: t.color }}>
+          <div style={{ ...styles.check, background: SELECTION_COLOR }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -617,18 +617,11 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => setView('leaderboard')} style={styles.headerBtn}>🏆 Leaderboard</button>
-            <button 
-              onClick={() => setShowConfidence(!showConfidence)} 
+            <button
+              onClick={() => setShowConfidence(!showConfidence)}
               style={{ ...styles.headerBtn, background: showConfidence ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)', borderColor: showConfidence ? '#22c55e' : 'rgba(255,255,255,0.1)' }}
             >
               {showConfidence ? '✓' : '🎯'} Confidence
-            </button>
-            <button onClick={printBracket} style={styles.headerBtn}>🖨️ Print</button>
-            <button 
-              onClick={() => { navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); }} 
-              style={{ ...styles.headerBtn, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
-            >
-              {copied ? '✓ Copied!' : '🔗 Share'}
             </button>
             <div style={styles.badge}>
               <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: isPastDeadline ? '#ef4444' : '#f59e0b' }} />
@@ -636,17 +629,24 @@ export default function App() {
             </div>
             <div style={{ ...styles.badge, position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(Object.keys(picks).length / 13) * 100}%`, background: isComplete ? 'linear-gradient(90deg, rgba(34,197,94,0.3), rgba(34,197,94,0.1))' : 'linear-gradient(90deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))', transition: 'width 0.3s ease' }} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isComplete ? '#22c55e' : '#f59e0b', position: 'relative' }} />
-              <span style={{ position: 'relative' }}>{Object.keys(picks).length}/13</span>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isComplete ? '#22c55e' : picksComplete ? '#3b82f6' : '#f59e0b', position: 'relative' }} />
+              <span style={{ position: 'relative' }}>{Object.keys(picks).length}/13{picksComplete && !tiebreakerFilled ? ' ⚠️' : ''}</span>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Mobile Tab Bar */}
+      <div className="mobile-tabs">
+        <button className={mobileTab === 'AFC' ? 'active' : ''} onClick={() => setMobileTab('AFC')}>AFC</button>
+        <button className={mobileTab === 'SUPER_BOWL' ? 'active' : ''} onClick={() => setMobileTab('SUPER_BOWL')}>Super Bowl</button>
+        <button className={mobileTab === 'NFC' ? 'active' : ''} onClick={() => setMobileTab('NFC')}>NFC</button>
+      </div>
+
       <main style={styles.bracketMain}>
         <div style={styles.bracketGrid} className="bracket-grid">
           {/* AFC */}
-          <div>
+          <div className={`bracket-section bracket-afc ${mobileTab === 'AFC' ? 'active' : ''}`}>
             <div style={styles.confHeader}>
               <div style={{ ...styles.confDot, background: 'linear-gradient(135deg, #d50a0a, #ff4444)', boxShadow: '0 0 12px rgba(213,10,10,0.5)' }} />
               <h2 style={{ ...styles.confTitle, background: 'linear-gradient(135deg, #fff, #ff8888)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AFC</h2>
@@ -670,7 +670,7 @@ export default function App() {
           </div>
 
           {/* Super Bowl */}
-          <div style={styles.sbWrap}>
+          <div style={styles.sbWrap} className={`bracket-section bracket-sb ${mobileTab === 'SUPER_BOWL' ? 'active' : ''}`}>
             <div style={{ position: 'absolute', top: 20, width: 200, height: 200, background: 'radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(30px)', pointerEvents: 'none' }} />
             
             <div style={styles.sbHeader}>
@@ -710,21 +710,22 @@ export default function App() {
             {/* Tiebreaker */}
             <div style={styles.tiebreaker}>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, display: 'block' }}>Tiebreaker: Total Points in Super Bowl</label>
-              <input 
-                type="number" 
-                placeholder="e.g. 47" 
-                value={tiebreaker} 
-                onChange={e => setTiebreaker(e.target.value)} 
-                min="0" 
-                max="200" 
-                style={styles.tiebreakerInput} 
+              <input
+                type="number"
+                placeholder="e.g. 47"
+                value={tiebreaker}
+                onChange={e => setTiebreaker(e.target.value)}
+                min="0"
+                max="200"
+                style={{ ...styles.tiebreakerInput, borderColor: picksComplete && !tiebreakerFilled ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}
               />
               {tiebreaker && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Closest to actual without going over wins</p>}
+              {picksComplete && !tiebreakerFilled && <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>⚠️ Required to complete bracket</p>}
             </div>
           </div>
 
           {/* NFC */}
-          <div>
+          <div className={`bracket-section bracket-nfc ${mobileTab === 'NFC' ? 'active' : ''}`}>
             <div style={{ ...styles.confHeader, justifyContent: 'flex-end' }}>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginRight: 'auto' }}>National Football Conference</span>
               <h2 style={{ ...styles.confTitle, background: 'linear-gradient(135deg, #fff, #88aaff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>NFC</h2>
@@ -801,15 +802,15 @@ const styles = {
   headerBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#e5e7eb', fontSize: 13, fontWeight: 500, cursor: 'pointer' },
   badge: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 13, fontWeight: 500 },
   bracketMain: { padding: 24, overflowX: 'auto' },
-  bracketGrid: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, maxWidth: 1600, margin: '0 auto', minWidth: 1100 },
+  bracketGrid: { display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, maxWidth: 1600, margin: '0 auto' },
   confHeader: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.08)' },
   confDot: { width: 14, height: 14, borderRadius: '50%' },
   confTitle: { fontFamily: "'Oswald', sans-serif", fontSize: 28, fontWeight: 700, margin: 0 },
-  rounds: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 },
+  rounds: { display: 'flex', flexDirection: 'column', gap: 24 },
   roundTitle: { fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 },
   matchup: { background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', borderRadius: 14, padding: 10, border: '1px solid rgba(255,255,255,0.08)', marginBottom: 10 },
   vs: { textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', padding: '2px 0' },
-  team: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, transition: 'all 0.2s' },
+  team: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, transition: 'all 0.2s', minHeight: 48 },
   teamEmpty: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, height: 44 },
   logoPlaceholder: { width: 28, height: 28, borderRadius: 6, background: 'rgba(255,255,255,0.05)' },
   seed: { background: 'rgba(255,255,255,0.1)', padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' },
