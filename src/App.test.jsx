@@ -160,6 +160,8 @@ describe('Join Screen', () => {
   });
 
   it('should hide avatar picker for returning users', async () => {
+    // Return mode only available after deadline
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
     render(<App />);
     fireEvent.click(screen.getByText('Return to My Bracket'));
     expect(screen.queryByText('Choose your avatar')).not.toBeInTheDocument();
@@ -220,6 +222,8 @@ describe('Join Screen', () => {
   });
 
   it('should toggle between new bracket and returning modes', async () => {
+    // Mode toggle only available after deadline
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
     render(<App />);
 
     // Should start with new bracket mode

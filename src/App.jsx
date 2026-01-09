@@ -144,6 +144,7 @@ export default function App() {
   }, []);
 
   // Check for saved session in localStorage (just the userId, not the data)
+  // Only switch to 'returning' mode after deadline to prevent accessing others' brackets
   useEffect(() => {
     const savedSession = localStorage.getItem('nfl_bracket_session');
     if (savedSession) {
@@ -152,11 +153,14 @@ export default function App() {
         if (session.firstName && session.lastName) {
           setFirstName(session.firstName);
           setLastName(session.lastName);
-          setJoinMode('returning');
+          // Only allow returning mode after deadline
+          if (isPastDeadline) {
+            setJoinMode('returning');
+          }
         }
       } catch (e) {}
     }
-  }, []);
+  }, [isPastDeadline]);
 
   // Auto-save picks to Firebase (debounced)
   useEffect(() => {
@@ -617,29 +621,31 @@ export default function App() {
           ))}
         </div>
 
-        {/* Mode Toggle */}
-        <div style={{ display: 'flex', gap: 0, marginBottom: 20, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 4 }}>
-          <button
-            onClick={() => setJoinMode('new')}
-            style={{
-              flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: joinMode === 'new' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'transparent',
-              color: joinMode === 'new' ? 'white' : 'rgba(255,255,255,0.5)'
-            }}
-          >
-            New Bracket
-          </button>
-          <button
-            onClick={() => setJoinMode('returning')}
-            style={{
-              flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: joinMode === 'returning' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'transparent',
-              color: joinMode === 'returning' ? 'white' : 'rgba(255,255,255,0.5)'
-            }}
-          >
-            Return to My Bracket
-          </button>
-        </div>
+        {/* Mode Toggle - only show after deadline to prevent accessing others' brackets */}
+        {isPastDeadline && (
+          <div style={{ display: 'flex', gap: 0, marginBottom: 20, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 4 }}>
+            <button
+              onClick={() => setJoinMode('new')}
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: joinMode === 'new' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'transparent',
+                color: joinMode === 'new' ? 'white' : 'rgba(255,255,255,0.5)'
+              }}
+            >
+              New Bracket
+            </button>
+            <button
+              onClick={() => setJoinMode('returning')}
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: joinMode === 'returning' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'transparent',
+                color: joinMode === 'returning' ? 'white' : 'rgba(255,255,255,0.5)'
+              }}
+            >
+              Return to My Bracket
+            </button>
+          </div>
+        )}
 
         {/* Name inputs */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>

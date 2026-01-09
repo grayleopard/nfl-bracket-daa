@@ -116,10 +116,13 @@ describe('Complete User Journey', () => {
     // Simulate page reload - need to set up localStorage to restore session
     localStorage.setItem('nfl_bracket_session', JSON.stringify({ firstName: 'Persist', lastName: 'User' }));
 
+    // Set time past deadline so "Return to My Bracket" mode is available
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
+
     unmount();
     render(<App />);
 
-    // Form should be pre-filled and in returning mode
+    // Form should be pre-filled and in returning mode (only available after deadline)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /access bracket/i })).toBeInTheDocument();
     });
