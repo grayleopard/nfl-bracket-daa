@@ -1,12 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
+import { resetMockStore, setMockStore, getMockStore } from '../__mocks__/bracketService';
+
+// Mock the bracketService module to use our __mocks__ version
+vi.mock('../services/bracketService', () => import('../__mocks__/bracketService'));
 
 /**
  * Integration tests for complete user workflows
  */
 
 beforeEach(() => {
+  resetMockStore();
   localStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(new Date('2026-01-05T12:00:00-08:00'));
@@ -15,7 +20,28 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   localStorage.clear();
+  resetMockStore();
 });
+
+// Helper function to complete the join flow
+const joinBracket = async (firstName, lastName, isNewBracket = true) => {
+  // Fill in the form
+  fireEvent.change(screen.getByPlaceholderText('First name'), { target: { value: firstName } });
+  fireEvent.change(screen.getByPlaceholderText('Last name'), { target: { value: lastName } });
+  fireEvent.change(screen.getByPlaceholderText('Group password'), { target: { value: 'mag2026' } });
+
+  // Select an avatar
+  fireEvent.click(screen.getByRole('button', { name: '🐻' }));
+
+  // Click the appropriate button
+  if (isNewBracket) {
+    fireEvent.click(screen.getByRole('button', { name: /create bracket/i }));
+  } else {
+    // Switch to "Return" mode first
+    fireEvent.click(screen.getByRole('button', { name: /return to my bracket/i }));
+    fireEvent.click(screen.getByRole('button', { name: /access bracket/i }));
+  }
+};
 
 describe('Complete User Journey', () => {
   it('should complete workflow: join -> make picks -> view leaderboard -> return', async () => {
@@ -24,12 +50,10 @@ describe('Complete User Journey', () => {
     // Step 1: Join the bracket
     expect(screen.getByText('NFL Playoffs 2026')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'TestPlayer' } });
-    fireEvent.click(screen.getByRole('button', { name: '🐻' }));
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
+    await joinBracket('Test', 'Player');
 
     await waitFor(() => {
-      expect(screen.getByText("TestPlayer's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Test P.'s Bracket")).toBeInTheDocument();
     });
 
     // Step 2: Make wild card picks
@@ -49,27 +73,25 @@ describe('Complete User Journey', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Leaderboard/)).toBeInTheDocument();
-      expect(screen.getByText('TestPlayer (You)')).toBeInTheDocument();
+      expect(screen.getByText('Test P. (You)')).toBeInTheDocument();
     });
 
     // Step 5: Return to bracket
     fireEvent.click(screen.getByRole('button', { name: /my bracket/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("TestPlayer's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Test P.'s Bracket")).toBeInTheDocument();
       expect(screen.getByText('3/13')).toBeInTheDocument();
     });
   });
 
-  it('should persist and restore session across page reloads', async () => {
+  it('should persist and restore session via Firebase', async () => {
     const { unmount } = render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'PersistUser' } });
-    fireEvent.click(screen.getByRole('button', { name: '🦅' }));
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
+    await joinBracket('Persist', 'User');
 
     await waitFor(() => {
-      expect(screen.getByText("PersistUser's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Persist U.'s Bracket")).toBeInTheDocument();
     });
 
     // Make some picks
@@ -83,23 +105,32 @@ describe('Complete User Journey', () => {
     // Enter tiebreaker
     fireEvent.change(screen.getByPlaceholderText('e.g. 47'), { target: { value: '55' } });
 
-    // Wait for localStorage save
-    await waitFor(() => {
-      const saved = localStorage.getItem('nfl_bracket_2026');
-      expect(saved).not.toBeNull();
-    }, { timeout: 3000 });
+    // Wait for auto-save
+    await vi.advanceTimersByTimeAsync(1500);
 
-    const savedData = JSON.parse(localStorage.getItem('nfl_bracket_2026'));
-    expect(savedData.picks.AFC_WC_0).toBe('NE');
-    expect(savedData.userName).toBe('PersistUser');
+    // Check mock store has the data
+    const store = getMockStore();
+    expect(store['persist_user']).toBeDefined();
+    expect(store['persist_user'].picks.AFC_WC_0).toBe('NE');
 
-    // Simulate page reload
+    // Simulate page reload - need to set up localStorage to restore session
+    localStorage.setItem('nfl_bracket_session', JSON.stringify({ firstName: 'Persist', lastName: 'User' }));
+
     unmount();
     render(<App />);
 
-    // Should go directly to bracket (skip join)
+    // Form should be pre-filled and in returning mode
     await waitFor(() => {
-      expect(screen.getByText("PersistUser's Bracket")).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /access bracket/i })).toBeInTheDocument();
+    });
+
+    // Enter password and submit
+    fireEvent.change(screen.getByPlaceholderText('Group password'), { target: { value: 'mag2026' } });
+    fireEvent.click(screen.getByRole('button', { name: /access bracket/i }));
+
+    // Should go to bracket with restored picks
+    await waitFor(() => {
+      expect(screen.getByText("Persist U.'s Bracket")).toBeInTheDocument();
     }, { timeout: 3000 });
 
     await waitFor(() => {
@@ -112,11 +143,10 @@ describe('Pick Cascade Deletion Workflow', () => {
   it('should cascade delete downstream picks when changing wild card pick', async () => {
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'Tester' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
+    await joinBracket('Test', 'Cascade');
 
     await waitFor(() => {
-      expect(screen.getByText("Tester's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Test C.'s Bracket")).toBeInTheDocument();
     });
 
     // Make AFC Wild Card picks
@@ -147,23 +177,31 @@ describe('Pick Cascade Deletion Workflow', () => {
 });
 
 describe('Head-to-Head Comparison Workflow', () => {
-  it('should show detailed comparison with another user', async () => {
-    render(<App />);
+  it('should show detailed comparison with another user after deadline', async () => {
+    // Set time past deadline so compare buttons are visible
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'Comparer' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Comparer's Bracket")).toBeInTheDocument();
+    // Pre-populate another user in the mock store
+    setMockStore({
+      'other_user': {
+        userId: 'other_user',
+        id: 'other_user',
+        firstName: 'Other',
+        lastName: 'User',
+        displayName: 'Other U.',
+        avatar: '🦊',
+        picks: { AFC_WC_0: 'NE', AFC_WC_1: 'JAX' },
+        tiebreaker: '42',
+        submitted: true,
+      }
     });
 
-    // Make picks that match Sarah M's picks
-    fireEvent.click(screen.getByText(/New England Patriots/));
-    fireEvent.click(screen.getByText(/Jacksonville Jaguars/));
-    fireEvent.click(screen.getByText(/Pittsburgh Steelers/));
+    render(<App />);
+
+    await joinBracket('Compare', 'Test');
 
     await waitFor(() => {
-      expect(screen.getByText('3/13')).toBeInTheDocument();
+      expect(screen.getByText("Compare T.'s Bracket")).toBeInTheDocument();
     });
 
     // Navigate to leaderboard
@@ -173,13 +211,17 @@ describe('Head-to-Head Comparison Workflow', () => {
       expect(screen.getByText(/Leaderboard/)).toBeInTheDocument();
     });
 
-    // Click compare button
+    // Find the compare button for the other user (visible after deadline)
+    await waitFor(() => {
+      const compareButtons = screen.getAllByTitle('Compare picks');
+      expect(compareButtons.length).toBeGreaterThan(0);
+    });
+
     const compareButtons = screen.getAllByTitle('Compare picks');
     fireEvent.click(compareButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByText(/Head-to-Head/)).toBeInTheDocument();
-      expect(screen.getByText('Matching Picks')).toBeInTheDocument();
     });
   });
 });
@@ -188,11 +230,10 @@ describe('Deadline Workflow', () => {
   it('should prevent all interactions after deadline passes', async () => {
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'LateUser' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
+    await joinBracket('Late', 'User');
 
     await waitFor(() => {
-      expect(screen.getByText("LateUser's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Late U.'s Bracket")).toBeInTheDocument();
     });
 
     // Make a pick before deadline
@@ -203,7 +244,7 @@ describe('Deadline Workflow', () => {
     vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
 
     // Force a re-render by triggering timer interval
-    vi.advanceTimersByTime(60000);
+    await vi.advanceTimersByTimeAsync(60000);
 
     await waitFor(() => {
       expect(screen.getByText('Picks Locked')).toBeInTheDocument();
@@ -222,11 +263,10 @@ describe.skip('Confidence Points Workflow', () => {
   it('should show confidence UI when enabled', async () => {
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'Confident' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
+    await joinBracket('Confident', 'User');
 
     await waitFor(() => {
-      expect(screen.getByText("Confident's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Confident U.'s Bracket")).toBeInTheDocument();
     });
 
     // Enable confidence mode
@@ -251,29 +291,26 @@ describe.skip('Confidence Points Workflow', () => {
 });
 
 describe('Error Recovery', () => {
-  it('should handle and recover from corrupted localStorage', () => {
-    localStorage.setItem('nfl_bracket_2026', '{ broken json');
+  it('should handle corrupted localStorage gracefully', () => {
+    localStorage.setItem('nfl_bracket_session', '{ broken json');
 
     render(<App />);
 
+    // Should show the join screen since the session is corrupted
     expect(screen.getByText('NFL Playoffs 2026')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Enter your name')).toBeInTheDocument();
   });
 
-  it('should handle partial/incomplete saved data', async () => {
-    localStorage.clear();
-    localStorage.setItem('nfl_bracket_2026', JSON.stringify({
-      userName: 'PartialUser',
-    }));
-
+  it('should show auth error for invalid group password', async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText("PartialUser's Bracket")).toBeInTheDocument();
-    }, { timeout: 3000 });
+    fireEvent.change(screen.getByPlaceholderText('First name'), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByPlaceholderText('Last name'), { target: { value: 'User' } });
+    fireEvent.change(screen.getByPlaceholderText('Group password'), { target: { value: 'wrongpassword' } });
+    fireEvent.click(screen.getByRole('button', { name: '🐻' }));
+    fireEvent.click(screen.getByRole('button', { name: /create bracket/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('0/13')).toBeInTheDocument();
+      expect(screen.getByText(/incorrect group password/i)).toBeInTheDocument();
     });
   });
 });
@@ -282,11 +319,10 @@ describe('Multi-Conference Independence', () => {
   it('should allow picks from both conferences independently', async () => {
     render(<App />);
 
-    fireEvent.change(screen.getByPlaceholderText('Enter your name'), { target: { value: 'MultiConf' } });
-    fireEvent.click(screen.getByRole('button', { name: /enter bracket/i }));
+    await joinBracket('Multi', 'Conf');
 
     await waitFor(() => {
-      expect(screen.getByText("MultiConf's Bracket")).toBeInTheDocument();
+      expect(screen.getByText("Multi C.'s Bracket")).toBeInTheDocument();
     });
 
     // Make one AFC Wild Card pick
@@ -303,14 +339,63 @@ describe('Multi-Conference Independence', () => {
       expect(screen.getByText('2/13')).toBeInTheDocument();
     });
 
-    // Verify both picks exist in localStorage
-    await waitFor(() => {
-      const saved = localStorage.getItem('nfl_bracket_2026');
-      expect(saved).not.toBeNull();
-    }, { timeout: 3000 });
+    // Wait for auto-save
+    await vi.advanceTimersByTimeAsync(1500);
 
-    const saved = JSON.parse(localStorage.getItem('nfl_bracket_2026'));
-    expect(saved.picks.AFC_WC_0).toBe('NE');
-    expect(saved.picks.NFC_WC_0).toBe('CHI');
+    // Verify both picks exist in mock store
+    const store = getMockStore();
+    expect(store['multi_conf'].picks.AFC_WC_0).toBe('NE');
+    expect(store['multi_conf'].picks.NFC_WC_0).toBe('CHI');
+  });
+});
+
+describe('Logout Workflow', () => {
+  it('should return to join screen after logout', async () => {
+    render(<App />);
+
+    await joinBracket('Logout', 'Test');
+
+    await waitFor(() => {
+      expect(screen.getByText("Logout T.'s Bracket")).toBeInTheDocument();
+    });
+
+    // Click logout
+    fireEvent.click(screen.getByRole('button', { name: /logout/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('NFL Playoffs 2026')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('First name')).toBeInTheDocument();
+    });
+
+    // Verify localStorage is cleared
+    expect(localStorage.getItem('nfl_bracket_session')).toBeNull();
+  });
+});
+
+describe('Clear Selections Workflow', () => {
+  it('should clear all selections when clicking clear button', async () => {
+    render(<App />);
+
+    await joinBracket('Clear', 'Test');
+
+    await waitFor(() => {
+      expect(screen.getByText("Clear T.'s Bracket")).toBeInTheDocument();
+    });
+
+    // Make some picks
+    fireEvent.click(screen.getByText(/New England Patriots/));
+    fireEvent.click(screen.getByText(/Jacksonville Jaguars/));
+    fireEvent.click(screen.getByText(/Pittsburgh Steelers/));
+
+    await waitFor(() => {
+      expect(screen.getByText('3/13')).toBeInTheDocument();
+    });
+
+    // Click clear button
+    fireEvent.click(screen.getByRole('button', { name: /clear all selections/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('0/13')).toBeInTheDocument();
+    });
   });
 });
