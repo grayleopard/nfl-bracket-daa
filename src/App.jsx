@@ -1,4 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  createUser,
+  getUser,
+  updatePicks,
+  updateTiebreaker,
+  submitBracket,
+  clearSelections,
+  getLeaderboard
+} from './services/bracketService';
+
+const GROUP_PASSWORD = import.meta.env.VITE_GROUP_PASSWORD || 'playoffs2026';
 
 // Real NFL team logos from Wikipedia/Wikimedia Commons (public domain / fair use for fan projects)
 const NFL_TEAMS = {
@@ -80,8 +91,21 @@ const AVATARS = ['🏈', '🦅', '🐻', '🐆', '🦁', '🐴', '🦬', '⚡', 
 const CONFIDENCE_POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 const SELECTION_COLOR = '#ffd700'; // Gold - uniform selection highlight color
 
+// Point values for correct picks
+const POINT_VALUES = {
+  WC: 5,        // Wild Card
+  DIV: 10,      // Divisional
+  CHAMP: 25,    // Conference Championship
+  SB: 50        // Super Bowl
+};
+
 export default function App() {
   const [view, setView] = useState('join');
+  const [joinMode, setJoinMode] = useState('new'); // 'new' or 'returning'
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [groupPassword, setGroupPassword] = useState('');
+  const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('');
   const [userAvatar, setUserAvatar] = useState('🏈');
   const [picks, setPicks] = useState({});
@@ -94,6 +118,10 @@ export default function App() {
   const [compareUser, setCompareUser] = useState(null);
   const [showConfidence, setShowConfidence] = useState(false);
   const [mobileTab, setMobileTab] = useState('AFC');
+  const [authError, setAuthError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const saveTimeoutRef = useRef(null);
 
   // Countdown timer
   useEffect(() => {
@@ -115,50 +143,168 @@ export default function App() {
     return () => clearInterval(i);
   }, []);
 
-  // Load saved data
+  // Check for saved session in localStorage (just the userId, not the data)
   useEffect(() => {
-    const saved = localStorage.getItem('nfl_bracket_2026');
-    if (saved) {
+    const savedSession = localStorage.getItem('nfl_bracket_session');
+    if (savedSession) {
       try {
-        const d = JSON.parse(saved);
-        if (d.userName) {
-          setUserName(d.userName);
-          setUserAvatar(d.avatar || '🏈');
-          setPicks(d.picks || {});
-          setConfidence(d.confidence || {});
-          setTiebreaker(d.tiebreaker || '');
-          setSubmitted(d.submitted || false);
-          setView('bracket');
+        const session = JSON.parse(savedSession);
+        if (session.firstName && session.lastName) {
+          setFirstName(session.firstName);
+          setLastName(session.lastName);
+          setJoinMode('returning');
         }
       } catch (e) {}
     }
   }, []);
 
-  // Save data
+  // Auto-save picks to Firebase (debounced)
   useEffect(() => {
-    if (userName && view === 'bracket') {
-      localStorage.setItem('nfl_bracket_2026', JSON.stringify({
-        userName,
-        avatar: userAvatar,
-        picks,
-        confidence,
-        tiebreaker,
-        submitted,
-        updatedAt: new Date().toISOString()
-      }));
+    if (!userId || view !== 'bracket') return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  }, [userName, userAvatar, picks, confidence, tiebreaker, submitted, view]);
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await updatePicks(userId, picks);
+      } catch (e) {
+        console.error('Failed to save picks:', e);
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [picks, userId, view]);
+
+  // Auto-save tiebreaker to Firebase (debounced)
+  useEffect(() => {
+    if (!userId || view !== 'bracket') return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        await updateTiebreaker(userId, tiebreaker);
+      } catch (e) {
+        console.error('Failed to save tiebreaker:', e);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [tiebreaker, userId, view]);
+
+  // Load leaderboard data when viewing leaderboard
+  useEffect(() => {
+    if (view === 'leaderboard') {
+      loadLeaderboard();
+    }
+  }, [view, isPastDeadline]);
+
+  const loadLeaderboard = async () => {
+    try {
+      const data = await getLeaderboard(isPastDeadline);
+      setLeaderboardData(data);
+    } catch (e) {
+      console.error('Failed to load leaderboard:', e);
+    }
+  };
 
   const picksComplete = Object.keys(picks).length === 13;
   const tiebreakerFilled = tiebreaker !== '' && !isNaN(parseInt(tiebreaker));
   const isComplete = picksComplete && tiebreakerFilled;
 
+  // Join/Login handler
+  const handleJoin = async () => {
+    setAuthError('');
+
+    if (!firstName.trim() || !lastName.trim()) {
+      setAuthError('Please enter your first and last name.');
+      return;
+    }
+
+    if (groupPassword !== GROUP_PASSWORD) {
+      setAuthError('Incorrect group password.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      let userData;
+
+      if (joinMode === 'new') {
+        // Create new user
+        userData = await createUser(firstName.trim(), lastName.trim(), userAvatar);
+      } else {
+        // Get existing user
+        userData = await getUser(firstName.trim(), lastName.trim());
+      }
+
+      // Save session to localStorage
+      localStorage.setItem('nfl_bracket_session', JSON.stringify({
+        firstName: firstName.trim(),
+        lastName: lastName.trim()
+      }));
+
+      // Set user state
+      setUserId(userData.userId);
+      setUserName(userData.displayName);
+      setUserAvatar(userData.avatar);
+      setPicks(userData.picks || {});
+      setTiebreaker(userData.tiebreaker || '');
+      setSubmitted(userData.submitted || false);
+      setView('bracket');
+    } catch (e) {
+      setAuthError(e.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem('nfl_bracket_session');
+    setUserId(null);
+    setUserName('');
+    setPicks({});
+    setTiebreaker('');
+    setSubmitted(false);
+    setFirstName('');
+    setLastName('');
+    setGroupPassword('');
+    setJoinMode('new');
+    setView('join');
+  };
+
   // Submit bracket handler
-  const handleSubmit = () => {
-    if (isComplete && !submitted) {
-      setSubmitted(true);
-      setShowComplete(true);
-      setTimeout(() => setShowComplete(false), 3500);
+  const handleSubmit = async () => {
+    if (isComplete && !submitted && userId) {
+      try {
+        await submitBracket(userId);
+        setSubmitted(true);
+        setShowComplete(true);
+        setTimeout(() => setShowComplete(false), 3500);
+      } catch (e) {
+        console.error('Failed to submit bracket:', e);
+      }
+    }
+  };
+
+  // Clear all selections handler
+  const handleClearSelections = async () => {
+    try {
+      if (userId) {
+        await clearSelections(userId);
+      }
+      setPicks({});
+      setConfidence({});
+      setTiebreaker('');
+      setSubmitted(false);
+    } catch (e) {
+      console.error('Failed to clear selections:', e);
     }
   };
 
@@ -184,15 +330,6 @@ export default function App() {
       return n;
     });
   };
-
-  // Mock users for leaderboard
-  const mockUsers = [
-    { name: 'Sarah M.', avatar: '🦅', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'JAX', AFC_WC_2: 'PIT', NFC_WC_0: 'CHI', NFC_WC_1: 'PHI', NFC_WC_2: 'CAR', AFC_DIV_0: 'DEN', AFC_DIV_1: 'JAX', NFC_DIV_0: 'SEA', NFC_DIV_1: 'PHI', AFC_CHAMP: 'DEN', NFC_CHAMP: 'PHI', SUPER_BOWL: 'PHI' }, tiebreaker: 47, id: 'sarah' },
-    { name: 'Mike R.', avatar: '🐻', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'BUF', AFC_WC_2: 'HOU', NFC_WC_0: 'CHI', NFC_WC_1: 'SF', NFC_WC_2: 'LAR', AFC_DIV_0: 'DEN', AFC_DIV_1: 'NE', NFC_DIV_0: 'SEA', NFC_DIV_1: 'CHI', AFC_CHAMP: 'DEN', NFC_CHAMP: 'CHI', SUPER_BOWL: 'CHI' }, tiebreaker: 52, id: 'mike' },
-    { name: 'David K.', avatar: '🦬', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'BUF', AFC_WC_2: 'HOU', NFC_WC_0: 'CHI', NFC_WC_1: 'PHI', NFC_WC_2: 'CAR', AFC_DIV_0: 'DEN', AFC_DIV_1: 'BUF', NFC_DIV_0: 'CHI', NFC_DIV_1: 'CAR', AFC_CHAMP: 'BUF', NFC_CHAMP: 'CHI', SUPER_BOWL: 'BUF' }, tiebreaker: 44, id: 'david' },
-    { name: 'Jessica T.', avatar: '🏈', picks: { AFC_WC_0: 'LAC', AFC_WC_1: 'JAX', AFC_WC_2: 'PIT', NFC_WC_0: 'GB', NFC_WC_1: 'PHI', NFC_WC_2: 'LAR' }, tiebreaker: 38, id: 'jessica' },
-    { name: 'Emily W.', avatar: '⚡', picks: { AFC_WC_0: 'NE', AFC_WC_1: 'JAX' }, tiebreaker: null, id: 'emily' },
-  ];
 
   // Count matching picks
   const countMatchingPicks = (picks1, picks2) => {
@@ -441,10 +578,14 @@ export default function App() {
     );
   };
 
-  const leaderboard = [
-    ...mockUsers,
-    ...(userName ? [{ name: userName + ' (You)', avatar: userAvatar, picks: picks, tiebreaker: tiebreaker ? parseInt(tiebreaker) : null, isYou: true, id: 'you' }] : []),
-  ].sort((a, b) => Object.keys(b.picks).length - Object.keys(a.picks).length);
+  // Process leaderboard data - mark current user and sort by pick count
+  const leaderboard = leaderboardData
+    .map(u => ({
+      ...u,
+      name: u.displayName,
+      isYou: u.id === userId,
+    }))
+    .sort((a, b) => b.pickCount - a.pickCount);
 
   // JOIN SCREEN
   if (view === 'join') return (
@@ -453,7 +594,7 @@ export default function App() {
       <div style={{ position: 'fixed', top: '10%', left: '10%', width: 300, height: 300, background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(40px)', animation: 'float 6s ease-in-out infinite' }} />
       <div style={{ position: 'fixed', bottom: '10%', right: '10%', width: 400, height: 400, background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(50px)', animation: 'float 8s ease-in-out infinite reverse' }} />
       <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 500, height: 500, background: 'radial-gradient(circle, rgba(255,215,0,0.05) 0%, transparent 60%)', borderRadius: '50%', filter: 'blur(60px)' }} />
-      
+
       <div style={styles.joinCard}>
         <div style={{ position: 'relative', display: 'inline-block', marginBottom: 24 }}>
           <div className="float">
@@ -461,63 +602,116 @@ export default function App() {
           </div>
           <div style={{ position: 'absolute', inset: -20, background: 'radial-gradient(circle, rgba(255,215,0,0.2) 0%, transparent 70%)', borderRadius: '50%', zIndex: -1 }} />
         </div>
-        
+
         <h1 style={styles.title}>NFL Playoffs 2026</h1>
         <p style={styles.subtitle}>Super Bowl LX • Levi's Stadium • Feb 8</p>
-        
+
         {/* Playoff teams preview */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
           {['DEN', 'NE', 'JAX', 'SEA', 'CHI', 'PHI', 'LAR'].map(t => (
-            <div key={t} style={{ transition: 'transform 0.2s', cursor: 'default' }} 
-                 onMouseOver={e => e.currentTarget.style.transform = 'scale(1.15)'} 
+            <div key={t} style={{ transition: 'transform 0.2s', cursor: 'default' }}
+                 onMouseOver={e => e.currentTarget.style.transform = 'scale(1.15)'}
                  onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
               <TeamLogo team={t} size={36} />
             </div>
           ))}
         </div>
-        
-        <input 
-          type="text" 
-          placeholder="Enter your name" 
-          value={userName} 
-          onChange={e => setUserName(e.target.value)} 
-          onKeyPress={e => e.key === 'Enter' && userName.trim() && setView('bracket')} 
-          style={styles.input} 
-        />
-        
-        <div style={styles.avatarPicker}>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Choose your avatar</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-            {AVATARS.map(a => (
-              <button 
-                key={a} 
-                onClick={() => setUserAvatar(a)} 
-                style={{ 
-                  ...styles.avatarBtn, 
-                  border: userAvatar === a ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.1)', 
-                  background: userAvatar === a ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)', 
-                  transform: userAvatar === a ? 'scale(1.1)' : 'scale(1)',
-                  boxShadow: userAvatar === a ? '0 0 20px rgba(59,130,246,0.4)' : 'none'
-                }}
-              >
-                {a}
-              </button>
-            ))}
-          </div>
+
+        {/* Mode Toggle */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 20, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 4 }}>
+          <button
+            onClick={() => setJoinMode('new')}
+            style={{
+              flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: joinMode === 'new' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'transparent',
+              color: joinMode === 'new' ? 'white' : 'rgba(255,255,255,0.5)'
+            }}
+          >
+            New Bracket
+          </button>
+          <button
+            onClick={() => setJoinMode('returning')}
+            style={{
+              flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: joinMode === 'returning' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'transparent',
+              color: joinMode === 'returning' ? 'white' : 'rgba(255,255,255,0.5)'
+            }}
+          >
+            Return to My Bracket
+          </button>
         </div>
-        
-        <button 
-          disabled={!userName.trim()} 
-          onClick={() => setView('bracket')} 
-          style={{ ...styles.joinBtn, opacity: userName.trim() ? 1 : 0.5, cursor: userName.trim() ? 'pointer' : 'not-allowed' }}
+
+        {/* Name inputs */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+          <input
+            type="text"
+            placeholder="First name"
+            value={firstName}
+            onChange={e => setFirstName(e.target.value)}
+            style={{ ...styles.input, marginBottom: 0, flex: 1 }}
+          />
+          <input
+            type="text"
+            placeholder="Last name"
+            value={lastName}
+            onChange={e => setLastName(e.target.value)}
+            style={{ ...styles.input, marginBottom: 0, flex: 1 }}
+          />
+        </div>
+
+        {/* Group password */}
+        <input
+          type="password"
+          placeholder="Group password"
+          value={groupPassword}
+          onChange={e => setGroupPassword(e.target.value)}
+          onKeyPress={e => e.key === 'Enter' && handleJoin()}
+          style={styles.input}
+        />
+
+        {/* Error message */}
+        {authError && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,0.15)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)' }}>
+            <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{authError}</p>
+          </div>
+        )}
+
+        {/* Avatar picker (only for new brackets) */}
+        {joinMode === 'new' && (
+          <div style={styles.avatarPicker}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Choose your avatar</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {AVATARS.map(a => (
+                <button
+                  key={a}
+                  onClick={() => setUserAvatar(a)}
+                  style={{
+                    ...styles.avatarBtn,
+                    border: userAvatar === a ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.1)',
+                    background: userAvatar === a ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
+                    transform: userAvatar === a ? 'scale(1.1)' : 'scale(1)',
+                    boxShadow: userAvatar === a ? '0 0 20px rgba(59,130,246,0.4)' : 'none'
+                  }}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button
+          disabled={isLoading || !firstName.trim() || !lastName.trim() || !groupPassword}
+          onClick={handleJoin}
+          style={{ ...styles.joinBtn, opacity: (isLoading || !firstName.trim() || !lastName.trim() || !groupPassword) ? 0.5 : 1, cursor: (isLoading || !firstName.trim() || !lastName.trim() || !groupPassword) ? 'not-allowed' : 'pointer' }}
         >
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            🏈 Enter Bracket
+            {isLoading ? 'Loading...' : joinMode === 'new' ? '🏈 Create Bracket' : '🏈 Access Bracket'}
           </span>
         </button>
-        
+
         <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+          <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: isPastDeadline ? '#ef4444' : '#f59e0b' }} />
           <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{countdown} until lock</span>
         </div>
       </div>
@@ -536,12 +730,19 @@ export default function App() {
           <button onClick={() => setView('bracket')} style={styles.headerBtn}>📋 My Bracket</button>
         </div>
       </header>
-      
+
       <main style={{ padding: 24, maxWidth: 700, margin: '0 auto' }}>
         <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 28, textAlign: 'center', marginBottom: 20 }}>🏆 Leaderboard</h2>
-        
-        {/* Head-to-head comparison */}
-        {compareUser && userName && (
+
+        {/* Picks hidden notice */}
+        {!isPastDeadline && (
+          <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(245,158,11,0.15)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.3)', textAlign: 'center' }}>
+            <p style={{ color: '#f59e0b', fontSize: 13, margin: 0 }}>🔒 Picks are hidden until the deadline. You can only see completion status.</p>
+          </div>
+        )}
+
+        {/* Head-to-head comparison - only after deadline */}
+        {isPastDeadline && compareUser && userName && (
           <div style={styles.h2hCard}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ fontSize: 14, fontWeight: 600 }}>Head-to-Head vs {compareUser.name}</h3>
@@ -553,7 +754,7 @@ export default function App() {
                 <p style={{ fontSize: 12, marginTop: 4 }}>You</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: '#ffd700' }}>{countMatchingPicks(picks, compareUser.picks)}/13</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: '#ffd700' }}>{countMatchingPicks(picks, compareUser.picks || {})}/13</div>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Matching Picks</p>
               </div>
               <div style={{ textAlign: 'center' }}>
@@ -566,7 +767,7 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
                 {Object.keys(picks).map(k => {
                   const yourPick = picks[k];
-                  const theirPick = compareUser.picks[k];
+                  const theirPick = compareUser.picks?.[k];
                   const match = yourPick === theirPick;
                   return (
                     <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: match ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', borderRadius: 6, fontSize: 11 }}>
@@ -581,33 +782,35 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {leaderboard.map((u, i) => {
-            const pickCount = Object.keys(u.picks).length;
-            const champTeam = u.picks.SUPER_BOWL;
-            return (
+        {leaderboard.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.5)' }}>
+            <p>No brackets submitted yet. Be the first!</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {leaderboard.map((u, i) => (
               <div key={u.id || u.name} style={{ ...styles.lbRow, background: u.isYou ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.1))' : 'rgba(255,255,255,0.04)', border: u.isYou ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
                 <span style={styles.lbRank}>{i + 1}</span>
                 <span style={{ fontSize: 24 }}>{u.avatar}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.name}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.name}{u.isYou ? ' (You)' : ''}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                    {pickCount}/13 picks {u.tiebreaker && `• TB: ${u.tiebreaker}`}
+                    {u.pickCount}/13 picks {u.submitted && '✓'} {isPastDeadline && u.tiebreaker && `• TB: ${u.tiebreaker}`}
                   </div>
                 </div>
-                {champTeam && <TeamLogo team={champTeam} size={28} />}
-                {!u.isYou && userName && (
+                {isPastDeadline && u.champion && <TeamLogo team={u.champion} size={28} />}
+                {isPastDeadline && !u.isYou && userId && (
                   <button onClick={() => setCompareUser(u)} style={styles.compareBtn} title="Compare picks">⚔️</button>
                 )}
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ marginTop: 32, padding: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
           <h3 style={{ fontSize: 14, marginBottom: 12, color: 'rgba(255,255,255,0.7)' }}>Scoring (When Games Complete)</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {[['Wild Card', '1 pt × conf'], ['Divisional', '2 pts × conf'], ['Conference', '4 pts × conf'], ['Super Bowl', '8 pts']].map(([r, p]) => (
+            {[['Wild Card', `${POINT_VALUES.WC} pts`], ['Divisional', `${POINT_VALUES.DIV} pts`], ['Conference', `${POINT_VALUES.CHAMP} pts`], ['Super Bowl', `${POINT_VALUES.SB} pts`]].map(([r, p]) => (
               <div key={r} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 13 }}>
                 <span>{r}</span><span style={{ fontWeight: 600, color: '#ffd700' }}>{p}</span>
               </div>
@@ -635,6 +838,7 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => setView('leaderboard')} style={styles.headerBtn}>🏆 Leaderboard</button>
+            <button onClick={handleLogout} style={styles.headerBtn}>Logout</button>
             {/* Confidence feature hidden for now
             <button
               onClick={() => setShowConfidence(!showConfidence)}
@@ -736,17 +940,43 @@ export default function App() {
             <div style={styles.tiebreaker}>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, display: 'block' }}>Tiebreaker: Total Points in Super Bowl</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="e.g. 47"
                 value={tiebreaker}
-                onChange={e => setTiebreaker(e.target.value)}
-                min="0"
-                max="200"
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 200)) {
+                    setTiebreaker(val);
+                  }
+                }}
                 style={{ ...styles.tiebreakerInput, borderColor: picksComplete && !tiebreakerFilled ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}
               />
               {tiebreaker && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Closest to actual without going over wins</p>}
               {picksComplete && !tiebreakerFilled && <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>⚠️ Required to complete bracket</p>}
             </div>
+
+            {/* Clear All Button */}
+            {!isPastDeadline && (
+              <button
+                onClick={handleClearSelections}
+                style={{
+                  marginTop: 24,
+                  padding: '12px 32px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  fontFamily: "'Oswald', sans-serif",
+                  background: 'rgba(239,68,68,0.2)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                Clear All Selections
+              </button>
+            )}
 
             {/* Submit Button */}
             {isComplete && !submitted && !isPastDeadline && (
