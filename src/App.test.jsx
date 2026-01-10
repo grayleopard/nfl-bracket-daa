@@ -455,10 +455,10 @@ describe('Leaderboard', () => {
   it('should show scoring rules', async () => {
     await navigateToLeaderboard();
     await waitFor(() => {
-      expect(screen.getByText('5 pts')).toBeInTheDocument();
-      expect(screen.getByText('10 pts')).toBeInTheDocument();
-      expect(screen.getByText('25 pts')).toBeInTheDocument();
-      expect(screen.getByText('50 pts')).toBeInTheDocument();
+      expect(screen.getByText('POINTS:')).toBeInTheDocument();
+      expect(screen.getByText('Wild Card')).toBeInTheDocument();
+      expect(screen.getByText('Super Bowl')).toBeInTheDocument();
+      expect(screen.getByText('• Max: 170 pts')).toBeInTheDocument();
     });
   });
 

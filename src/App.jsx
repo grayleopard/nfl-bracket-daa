@@ -860,7 +860,26 @@ export default function App() {
       </header>
 
       <main style={{ padding: 24, maxWidth: 700, margin: '0 auto' }}>
-        <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 28, textAlign: 'center', marginBottom: 20 }}>🏆 Leaderboard</h2>
+        <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 28, textAlign: 'center', marginBottom: 16 }}>🏆 Leaderboard</h2>
+
+        {/* Scoring System Box */}
+        <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(255,215,0,0.08)', borderRadius: 10, border: '1px solid rgba(255,215,0,0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>POINTS:</span>
+            {[
+              ['Wild Card', POINT_VALUES.WC],
+              ['Divisional', POINT_VALUES.DIV],
+              ['Conference', POINT_VALUES.CHAMP],
+              ['Super Bowl', POINT_VALUES.SB]
+            ].map(([round, pts]) => (
+              <span key={round} style={{ fontSize: 12 }}>
+                <span style={{ color: 'rgba(255,255,255,0.6)' }}>{round}</span>
+                <span style={{ color: '#ffd700', fontWeight: 700, marginLeft: 4 }}>{pts}</span>
+              </span>
+            ))}
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>• Max: 170 pts</span>
+          </div>
+        </div>
 
         {/* Picks hidden notice */}
         {!isPastDeadline && (
@@ -957,19 +976,6 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ marginTop: 32, padding: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
-          <h3 style={{ fontSize: 14, marginBottom: 12, color: 'rgba(255,255,255,0.7)' }}>Scoring (When Games Complete)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {[['Wild Card', `${POINT_VALUES.WC} pts`], ['Divisional', `${POINT_VALUES.DIV} pts`], ['Conference', `${POINT_VALUES.CHAMP} pts`], ['Super Bowl', `${POINT_VALUES.SB} pts`]].map(([r, p]) => (
-              <div key={r} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 13 }}>
-                <span>{r}</span><span style={{ fontWeight: 600, color: '#ffd700' }}>{p}</span>
-              </div>
-            ))}
-          </div>
-          {/* Confidence feature hidden for now
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12, textAlign: 'center' }}>With confidence points: multiply round score × your assigned confidence value</p>
-          */}
-        </div>
       </main>
     </div>
   );
