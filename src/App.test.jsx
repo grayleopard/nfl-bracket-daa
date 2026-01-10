@@ -282,7 +282,7 @@ describe('Bracket View', () => {
 
   it('should display progress counter', async () => {
     await navigateToBracket();
-    expect(screen.getByText('0/13')).toBeInTheDocument();
+    expect(screen.getByText('0/13 correct')).toBeInTheDocument();
   });
 
   it('should show header navigation buttons', async () => {
@@ -331,7 +331,7 @@ describe('Making Picks', () => {
     fireEvent.click(patriotsTeam);
 
     await waitFor(() => {
-      expect(screen.getByText('1/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 
@@ -340,12 +340,12 @@ describe('Making Picks', () => {
 
     fireEvent.click(screen.getByText(/New England Patriots/));
     await waitFor(() => {
-      expect(screen.getByText('1/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText(/New England Patriots/));
     await waitFor(() => {
-      expect(screen.getByText('0/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 
@@ -368,7 +368,7 @@ describe('Making Picks', () => {
     fireEvent.click(screen.getByText(/Pittsburgh Steelers/));
 
     await waitFor(() => {
-      expect(screen.getByText('3/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 
@@ -393,13 +393,13 @@ describe('Making Picks', () => {
 
     fireEvent.click(screen.getByText(/New England Patriots/));
     await waitFor(() => {
-      expect(screen.getByText('1/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /clear all selections/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('0/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 });
@@ -563,7 +563,7 @@ describe('Deadline Behavior', () => {
     // Make a pick before deadline
     fireEvent.click(screen.getByText(/New England Patriots/));
     await waitFor(() => {
-      expect(screen.getByText('1/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Advance past deadline
@@ -576,7 +576,7 @@ describe('Deadline Behavior', () => {
 
     // Try to make another pick - should not change
     fireEvent.click(screen.getByText(/Jacksonville Jaguars/));
-    expect(screen.getByText('1/13')).toBeInTheDocument();
+    expect(screen.getByText('0/13 correct')).toBeInTheDocument();
   });
 });
 

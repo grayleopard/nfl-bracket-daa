@@ -975,8 +975,8 @@ export default function App() {
   );
 
   // BRACKET VIEW
-  const displayPickCount = Object.keys(displayPicks).length;
-  const displayComplete = displayPickCount === 13;
+  const displayScore = calculateScore(displayPicks);
+  const displayCorrect = displayScore.correct;
 
   return (
     <div style={styles.app}>
@@ -1014,9 +1014,9 @@ export default function App() {
               {countdown}
             </div>
             <div style={{ ...styles.badge, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(displayPickCount / 13) * 100}%`, background: displayComplete ? 'linear-gradient(90deg, rgba(34,197,94,0.3), rgba(34,197,94,0.1))' : 'linear-gradient(90deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))', transition: 'width 0.3s ease' }} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: displayComplete ? '#22c55e' : '#f59e0b', position: 'relative' }} />
-              <span style={{ position: 'relative' }}>{displayPickCount}/13</span>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(displayCorrect / 13) * 100}%`, background: displayCorrect === 13 ? 'linear-gradient(90deg, rgba(34,197,94,0.3), rgba(34,197,94,0.1))' : 'linear-gradient(90deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))', transition: 'width 0.3s ease' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: displayCorrect === 13 ? '#22c55e' : '#f59e0b', position: 'relative' }} />
+              <span style={{ position: 'relative' }}>{displayCorrect}/13 correct</span>
             </div>
           </div>
         </div>

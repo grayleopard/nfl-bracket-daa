@@ -66,7 +66,7 @@ describe('Complete User Journey', () => {
     });
 
     // Step 3: Check progress
-    expect(screen.getByText('3/13')).toBeInTheDocument();
+    expect(screen.getByText('0/13 correct')).toBeInTheDocument();
 
     // Step 4: Navigate to leaderboard
     fireEvent.click(screen.getByRole('button', { name: /leaderboard/i }));
@@ -81,7 +81,7 @@ describe('Complete User Journey', () => {
 
     await waitFor(() => {
       expect(screen.getByText("Test P.'s Bracket")).toBeInTheDocument();
-      expect(screen.getByText('3/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 
@@ -100,7 +100,7 @@ describe('Complete User Journey', () => {
     fireEvent.click(screen.getByText(/Jacksonville Jaguars/));
 
     await waitFor(() => {
-      expect(screen.getByText('2/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Enter tiebreaker
@@ -138,7 +138,7 @@ describe('Complete User Journey', () => {
     }, { timeout: 3000 });
 
     await waitFor(() => {
-      expect(screen.getByText('2/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 });
@@ -159,7 +159,7 @@ describe('Pick Cascade Deletion Workflow', () => {
     fireEvent.click(screen.getByText(/Pittsburgh Steelers/));
 
     await waitFor(() => {
-      expect(screen.getByText('3/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Verify we can see divisional matchups now
@@ -176,7 +176,7 @@ describe('Pick Cascade Deletion Workflow', () => {
     });
 
     // Should still have 3 picks (WC picks unchanged count-wise)
-    expect(screen.getByText('3/13')).toBeInTheDocument();
+    expect(screen.getByText('0/13 correct')).toBeInTheDocument();
   });
 });
 
@@ -244,7 +244,7 @@ describe('Deadline Workflow', () => {
 
     // Make a pick before deadline
     fireEvent.click(screen.getByText(/New England Patriots/));
-    expect(screen.getByText('1/13')).toBeInTheDocument();
+    expect(screen.getByText('0/13 correct')).toBeInTheDocument();
 
     // Simulate deadline passing by setting system time
     vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
@@ -260,7 +260,7 @@ describe('Deadline Workflow', () => {
     fireEvent.click(screen.getByText(/Jacksonville Jaguars/));
 
     // Progress should still be 1/13
-    expect(screen.getByText('1/13')).toBeInTheDocument();
+    expect(screen.getByText('0/13 correct')).toBeInTheDocument();
   });
 });
 
@@ -282,7 +282,7 @@ describe.skip('Confidence Points Workflow', () => {
     fireEvent.click(screen.getByText(/New England Patriots/));
 
     await waitFor(() => {
-      expect(screen.getByText('1/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Should see confidence label
@@ -335,14 +335,14 @@ describe('Multi-Conference Independence', () => {
     fireEvent.click(screen.getByText(/New England Patriots/));
 
     await waitFor(() => {
-      expect(screen.getByText('1/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Make one NFC Wild Card pick
     fireEvent.click(screen.getByText(/Chicago Bears/));
 
     await waitFor(() => {
-      expect(screen.getByText('2/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Wait for auto-save
@@ -394,14 +394,14 @@ describe('Clear Selections Workflow', () => {
     fireEvent.click(screen.getByText(/Pittsburgh Steelers/));
 
     await waitFor(() => {
-      expect(screen.getByText('3/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
 
     // Click clear button
     fireEvent.click(screen.getByRole('button', { name: /clear all selections/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('0/13')).toBeInTheDocument();
+      expect(screen.getByText('0/13 correct')).toBeInTheDocument();
     });
   });
 });
