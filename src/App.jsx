@@ -232,6 +232,13 @@ export default function App() {
     }
   };
 
+  // Go to home (leaderboard) and refresh data
+  const goHome = () => {
+    setViewingUser(null);
+    setView('leaderboard');
+    loadLeaderboard();
+  };
+
   const picksComplete = Object.keys(picks).length === 13;
   const tiebreakerFilled = tiebreaker !== '' && !isNaN(parseInt(tiebreaker));
   const isComplete = picksComplete && tiebreakerFilled;
@@ -785,11 +792,15 @@ export default function App() {
     <div style={styles.app}>
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            onClick={goHome}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+            title="Home"
+          >
             <NFLShieldLogo size={36} />
             <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 20, fontWeight: 700 }}>NFL Playoffs 2026</h1>
           </div>
-          <button onClick={() => setView('bracket')} style={styles.headerBtn}>📋 My Bracket</button>
+          {userId && <button onClick={() => setView('bracket')} style={styles.headerBtn}>📋 My Bracket</button>}
         </div>
       </header>
 
@@ -910,7 +921,11 @@ export default function App() {
     <div style={styles.app}>
       <header style={styles.header} className="no-print">
         <div style={styles.headerInner}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            onClick={goHome}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+            title="Home"
+          >
             <NFLShieldLogo size={36} />
             <div>
               <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 20, fontWeight: 700, margin: 0 }}>NFL Playoffs 2026</h1>
