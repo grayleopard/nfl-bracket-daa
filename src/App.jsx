@@ -399,7 +399,7 @@ export default function App() {
 
   // Make a pick (click again to deselect)
   const pick = (key, team) => {
-    if (isPastDeadline) return;
+    if (isPastDeadline || submitted) return;
     setPicks(p => {
       const n = { ...p };
       const [c, r] = key.split('_');
