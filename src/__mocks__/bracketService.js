@@ -89,3 +89,12 @@ export const getLeaderboard = vi.fn(async (isPastDeadline) => {
 export const getAllUsers = vi.fn(async () => {
   return Object.values(mockStore);
 });
+
+export const getCompletedBrackets = vi.fn(async () => {
+  return Object.values(mockStore)
+    .filter(user => user.submitted && Object.keys(user.picks || {}).length === 13)
+    .map(user => ({
+      displayName: user.displayName,
+      avatar: user.avatar,
+    }));
+});

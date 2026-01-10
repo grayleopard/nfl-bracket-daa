@@ -63,6 +63,14 @@ const { mockStore, mockFunctions } = vi.hoisted(() => {
         champion: isPastDeadline && user.picks?.SUPER_BOWL ? user.picks.SUPER_BOWL : null,
       }));
     }),
+    getCompletedBrackets: vi.fn(async () => {
+      return Object.values(store.data)
+        .filter(user => user.submitted && Object.keys(user.picks || {}).length === 13)
+        .map(user => ({
+          displayName: user.displayName,
+          avatar: user.avatar,
+        }));
+    }),
   };
 
   return { mockStore: store, mockFunctions: fns };

@@ -115,6 +115,17 @@ export const getAllUsers = async () => {
   return users;
 };
 
+// Get completed brackets (13 picks + submitted) for display on join screen
+export const getCompletedBrackets = async () => {
+  const users = await getAllUsers();
+  return users
+    .filter(user => user.submitted && Object.keys(user.picks || {}).length === 13)
+    .map(user => ({
+      displayName: user.displayName,
+      avatar: user.avatar,
+    }));
+};
+
 // Get leaderboard data (hides picks if before deadline)
 export const getLeaderboard = async (isPastDeadline) => {
   const users = await getAllUsers();

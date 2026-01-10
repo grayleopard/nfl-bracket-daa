@@ -6,7 +6,8 @@ import {
   updateTiebreaker,
   submitBracket,
   clearSelections,
-  getLeaderboard
+  getLeaderboard,
+  getCompletedBrackets
 } from './services/bracketService';
 
 const GROUP_PASSWORD = import.meta.env.VITE_GROUP_PASSWORD || 'playoffs2026';
@@ -121,7 +122,13 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const [completedBrackets, setCompletedBrackets] = useState([]);
   const saveTimeoutRef = useRef(null);
+
+  // Fetch completed brackets on mount (for join screen display)
+  useEffect(() => {
+    getCompletedBrackets().then(setCompletedBrackets).catch(() => {});
+  }, []);
 
   // Countdown timer
   useEffect(() => {
@@ -728,6 +735,30 @@ export default function App() {
             {isPastDeadline ? '🔒 Entries Closed' : `${countdown} until lock`}
           </span>
         </div>
+
+        {/* Completed Brackets List */}
+        {completedBrackets.length > 0 && (
+          <div style={{ marginTop: 28, padding: '16px 20px', background: 'rgba(34,197,94,0.08)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.2)' }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: '0 0 12px 0', fontWeight: 600 }}>
+              ✓ Completed Brackets ({completedBrackets.length})
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {completedBrackets.map((user, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 10px', background: 'rgba(255,255,255,0.05)',
+                    borderRadius: 20, fontSize: 13
+                  }}
+                >
+                  <span>{user.avatar}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>{user.displayName}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
