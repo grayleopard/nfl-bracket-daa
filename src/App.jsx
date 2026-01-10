@@ -86,7 +86,7 @@ const SEEDS = {
   ],
 };
 
-const DEADLINE = new Date('2026-01-10T13:00:00-08:00');
+const DEADLINE = new Date('2026-01-10T12:55:00-08:00'); // 5 min before first kickoff
 const AVATARS = ['🏈', '🦅', '🐻', '🐆', '🦁', '🐴', '🦬', '⚡', '🏴‍☠️', '🧀', '🌊', '⭐'];
 const CONFIDENCE_POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 const SELECTION_COLOR = '#ffd700'; // Gold - uniform selection highlight color
@@ -223,6 +223,12 @@ export default function App() {
   // Join/Login handler
   const handleJoin = async () => {
     setAuthError('');
+
+    // Block new entries after deadline
+    if (isPastDeadline && joinMode === 'new') {
+      setAuthError('Entries are closed. The deadline has passed.');
+      return;
+    }
 
     if (!firstName.trim() || !lastName.trim()) {
       setAuthError('Please enter your first and last name.');
@@ -707,9 +713,9 @@ export default function App() {
         )}
 
         <button
-          disabled={isLoading || !firstName.trim() || !lastName.trim() || !groupPassword}
+          disabled={isLoading || !firstName.trim() || !lastName.trim() || !groupPassword || (isPastDeadline && joinMode === 'new')}
           onClick={handleJoin}
-          style={{ ...styles.joinBtn, opacity: (isLoading || !firstName.trim() || !lastName.trim() || !groupPassword) ? 0.5 : 1, cursor: (isLoading || !firstName.trim() || !lastName.trim() || !groupPassword) ? 'not-allowed' : 'pointer' }}
+          style={{ ...styles.joinBtn, opacity: (isLoading || !firstName.trim() || !lastName.trim() || !groupPassword || (isPastDeadline && joinMode === 'new')) ? 0.5 : 1, cursor: (isLoading || !firstName.trim() || !lastName.trim() || !groupPassword || (isPastDeadline && joinMode === 'new')) ? 'not-allowed' : 'pointer' }}
         >
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {isLoading ? 'Loading...' : joinMode === 'new' ? '🏈 Create Bracket' : '🏈 Access Bracket'}
@@ -718,7 +724,9 @@ export default function App() {
 
         <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <span className="pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: isPastDeadline ? '#ef4444' : '#f59e0b' }} />
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{countdown} until lock</span>
+          <span style={{ fontSize: 13, color: isPastDeadline ? '#ef4444' : 'rgba(255,255,255,0.5)' }}>
+            {isPastDeadline ? '🔒 Entries Closed' : `${countdown} until lock`}
+          </span>
         </div>
       </div>
     </div>

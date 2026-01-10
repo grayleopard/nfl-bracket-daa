@@ -464,10 +464,6 @@ describe('Leaderboard', () => {
 // Leaderboard After Deadline Tests
 // ============================================
 describe('Leaderboard After Deadline', () => {
-  beforeEach(() => {
-    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
-  });
-
   const setupWithOtherUsers = async () => {
     // Pre-populate other users
     setMockStore({
@@ -481,12 +477,18 @@ describe('Leaderboard After Deadline', () => {
       }
     });
 
+    // Create bracket before deadline (default time from global beforeEach)
     render(<App />);
     await fillJoinForm();
     await submitJoinForm();
     await waitFor(() => {
       expect(screen.getByText("John D.'s Bracket")).toBeInTheDocument();
     });
+
+    // Now advance past deadline
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
+    await vi.advanceTimersByTimeAsync(60000);
+
     fireEvent.click(screen.getByRole('button', { name: /leaderboard/i }));
   };
 
@@ -523,11 +525,17 @@ describe('Leaderboard After Deadline', () => {
 // ============================================
 describe('Deadline Behavior', () => {
   it('should show Picks Locked after deadline', async () => {
-    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
-
+    // Create bracket before deadline (default time from global beforeEach)
     render(<App />);
     await fillJoinForm();
     await submitJoinForm();
+    await waitFor(() => {
+      expect(screen.getByText("John D.'s Bracket")).toBeInTheDocument();
+    });
+
+    // Advance past deadline
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
+    await vi.advanceTimersByTimeAsync(60000);
 
     await waitFor(() => {
       expect(screen.getByText('Picks Locked')).toBeInTheDocument();

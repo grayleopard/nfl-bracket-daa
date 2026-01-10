@@ -181,9 +181,6 @@ describe('Pick Cascade Deletion Workflow', () => {
 
 describe('Head-to-Head Comparison Workflow', () => {
   it('should show detailed comparison with another user after deadline', async () => {
-    // Set time past deadline so compare buttons are visible
-    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
-
     // Pre-populate another user in the mock store
     setMockStore({
       'other_user': {
@@ -201,11 +198,16 @@ describe('Head-to-Head Comparison Workflow', () => {
 
     render(<App />);
 
+    // Create bracket before deadline
     await joinBracket('Compare', 'Test');
 
     await waitFor(() => {
       expect(screen.getByText("Compare T.'s Bracket")).toBeInTheDocument();
     });
+
+    // Now set time past deadline so compare buttons are visible
+    vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
+    await vi.advanceTimersByTimeAsync(60000);
 
     // Navigate to leaderboard
     fireEvent.click(screen.getByRole('button', { name: /leaderboard/i }));
