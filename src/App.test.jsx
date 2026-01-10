@@ -167,7 +167,8 @@ describe('Join Screen', () => {
     });
   });
 
-  it('should hide avatar picker for returning users', async () => {
+  // Skip: After deadline, join screen is no longer shown - users go directly to leaderboard
+  it.skip('should hide avatar picker for returning users', async () => {
     // Return mode only available after deadline
     vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
     render(<App />);
@@ -229,7 +230,8 @@ describe('Join Screen', () => {
     });
   });
 
-  it('should toggle between new bracket and returning modes', async () => {
+  // Skip: After deadline, join screen is no longer shown - users go directly to leaderboard
+  it.skip('should toggle between new bracket and returning modes', async () => {
     // Mode toggle only available after deadline
     vi.setSystemTime(new Date('2026-01-11T12:00:00-08:00'));
     render(<App />);

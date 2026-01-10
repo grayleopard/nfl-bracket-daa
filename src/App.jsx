@@ -103,6 +103,7 @@ const POINT_VALUES = {
 export default function App() {
   const [view, setView] = useState('join');
   const [joinMode, setJoinMode] = useState('new'); // 'new' or 'returning'
+  const [viewingUser, setViewingUser] = useState(null); // For viewing other users' brackets after deadline
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [groupPassword, setGroupPassword] = useState('');
@@ -129,6 +130,14 @@ export default function App() {
   useEffect(() => {
     getCompletedBrackets().then(setCompletedBrackets).catch(() => {});
   }, []);
+
+  // After deadline: go straight to leaderboard (no login needed)
+  useEffect(() => {
+    if (isPastDeadline && view === 'join') {
+      setView('leaderboard');
+      getLeaderboard(true).then(setLeaderboardData).catch(() => {});
+    }
+  }, [isPastDeadline]);
 
   // Countdown timer
   useEffect(() => {
@@ -355,39 +364,46 @@ export default function App() {
     return matches;
   };
 
+  // Display state for viewing other users' brackets
+  const displayPicks = viewingUser ? (viewingUser.picks || {}) : picks;
+  const displayName = viewingUser ? viewingUser.name : userName;
+  const displayAvatar = viewingUser ? viewingUser.avatar : userAvatar;
+  const isViewingOther = !!viewingUser;
+
   // Build bracket structure
-  const getBracket = useCallback(() => {
+  const getBracket = useCallback((picksToUse) => {
+    const p = picksToUse || picks;
     const getTeam = (team) => ({ t: team, s: SEEDS.AFC.find(s => s.team === team)?.seed || SEEDS.NFC.find(s => s.team === team)?.seed });
     const wcGames = (conf) => [
-      { h: getTeam(SEEDS[conf][1].team), l: getTeam(SEEDS[conf][6].team), w: picks[`${conf}_WC_0`] },
-      { h: getTeam(SEEDS[conf][2].team), l: getTeam(SEEDS[conf][5].team), w: picks[`${conf}_WC_1`] },
-      { h: getTeam(SEEDS[conf][3].team), l: getTeam(SEEDS[conf][4].team), w: picks[`${conf}_WC_2`] },
+      { h: getTeam(SEEDS[conf][1].team), l: getTeam(SEEDS[conf][6].team), w: p[`${conf}_WC_0`] },
+      { h: getTeam(SEEDS[conf][2].team), l: getTeam(SEEDS[conf][5].team), w: p[`${conf}_WC_1`] },
+      { h: getTeam(SEEDS[conf][3].team), l: getTeam(SEEDS[conf][4].team), w: p[`${conf}_WC_2`] },
     ];
-    
+
     const divGames = (conf) => {
       const wcWinners = wcGames(conf).map(g => g.w ? getTeam(g.w) : null).filter(Boolean);
-      if (wcWinners.length < 3) return [{ h: null, l: null, w: picks[`${conf}_DIV_0`] }, { h: null, l: null, w: picks[`${conf}_DIV_1`] }];
+      if (wcWinners.length < 3) return [{ h: null, l: null, w: p[`${conf}_DIV_0`] }, { h: null, l: null, w: p[`${conf}_DIV_1`] }];
       const sorted = [...wcWinners].sort((a, b) => a.s - b.s);
       const top = getTeam(SEEDS[conf][0].team);
       return [
-        { h: top, l: sorted[2], w: picks[`${conf}_DIV_0`] },
-        { h: sorted[0], l: sorted[1], w: picks[`${conf}_DIV_1`] },
+        { h: top, l: sorted[2], w: p[`${conf}_DIV_0`] },
+        { h: sorted[0], l: sorted[1], w: p[`${conf}_DIV_1`] },
       ];
     };
-    
+
     const champGame = (conf) => {
       const dg = divGames(conf);
       const w0 = dg[0].w ? getTeam(dg[0].w) : null;
       const w1 = dg[1].w ? getTeam(dg[1].w) : null;
-      return { h: w0, l: w1, w: picks[`${conf}_CHAMP`] };
+      return { h: w0, l: w1, w: p[`${conf}_CHAMP`] };
     };
-    
+
     const sb = () => {
       const afc = champGame('AFC').w ? getTeam(champGame('AFC').w) : null;
       const nfc = champGame('NFC').w ? getTeam(champGame('NFC').w) : null;
-      return { afc, nfc, w: picks.SUPER_BOWL };
+      return { afc, nfc, w: p.SUPER_BOWL };
     };
-    
+
     return {
       AFC: { wc: wcGames('AFC'), div: divGames('AFC'), champ: champGame('AFC') },
       NFC: { wc: wcGames('NFC'), div: divGames('NFC'), champ: champGame('NFC') },
@@ -395,7 +411,7 @@ export default function App() {
     };
   }, [picks]);
 
-  const bracket = getBracket();
+  const bracket = getBracket(displayPicks);
 
   // Make a pick (click again to deselect)
   const pick = (key, team) => {
@@ -555,12 +571,13 @@ export default function App() {
     const upsetPick = isUpset(game, game.w);
     const confPts = confidence[pickKey];
     const availableConf = getAvailableConfidence();
-    
+    const isDisabled = isPastDeadline || isViewingOther;
+
     return (
       <div style={styles.matchup}>
-        <Team data={game.h} selected={game.w === game.h?.t} onClick={game.h && game.l ? () => pick(pickKey, game.h.t) : null} disabled={isPastDeadline} isUpsetPick={false} />
+        <Team data={game.h} selected={game.w === game.h?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.h.t) : null} disabled={isDisabled} isUpsetPick={false} />
         <div style={styles.vs}>VS</div>
-        <Team data={game.l} selected={game.w === game.l?.t} onClick={game.h && game.l ? () => pick(pickKey, game.l.t) : null} disabled={isPastDeadline} isUpsetPick={upsetPick} />
+        <Team data={game.l} selected={game.w === game.l?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.l.t) : null} disabled={isDisabled} isUpsetPick={upsetPick} />
         {game.w && showConfidence && (
           <div style={styles.confRow}>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Confidence:</span>
@@ -834,18 +851,34 @@ export default function App() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {leaderboard.map((u, i) => (
-              <div key={u.id || u.name} style={{ ...styles.lbRow, background: u.isYou ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.1))' : 'rgba(255,255,255,0.04)', border: u.isYou ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(255,255,255,0.06)' }}>
+              <div
+                key={u.id || u.name}
+                onClick={() => {
+                  if (isPastDeadline) {
+                    setViewingUser(u);
+                    setView('bracket');
+                  }
+                }}
+                style={{
+                  ...styles.lbRow,
+                  background: u.isYou ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.1))' : 'rgba(255,255,255,0.04)',
+                  border: u.isYou ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                  cursor: isPastDeadline ? 'pointer' : 'default',
+                }}
+              >
                 <span style={styles.lbRank}>{i + 1}</span>
                 <span style={{ fontSize: 24 }}>{u.avatar}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{u.name}{u.isYou ? ' (You)' : ''}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: isPastDeadline ? '#60a5fa' : 'inherit', textDecoration: isPastDeadline ? 'underline' : 'none' }}>
+                    {u.name}{u.isYou ? ' (You)' : ''}
+                  </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
                     {u.pickCount}/13 picks {u.submitted && '✓'} {isPastDeadline && u.tiebreaker && `• TB: ${u.tiebreaker}`}
                   </div>
                 </div>
                 {isPastDeadline && u.champion && <TeamLogo team={u.champion} size={28} />}
                 {isPastDeadline && !u.isYou && userId && (
-                  <button onClick={() => setCompareUser(u)} style={styles.compareBtn} title="Compare picks">⚔️</button>
+                  <button onClick={(e) => { e.stopPropagation(); setCompareUser(u); }} style={styles.compareBtn} title="Compare picks">⚔️</button>
                 )}
               </div>
             ))}
@@ -870,6 +903,9 @@ export default function App() {
   );
 
   // BRACKET VIEW
+  const displayPickCount = Object.keys(displayPicks).length;
+  const displayComplete = displayPickCount === 13;
+
   return (
     <div style={styles.app}>
       <header style={styles.header} className="no-print">
@@ -878,12 +914,17 @@ export default function App() {
             <NFLShieldLogo size={36} />
             <div>
               <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 20, fontWeight: 700, margin: 0 }}>NFL Playoffs 2026</h1>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{userName}'s Bracket</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                {displayName}'s Bracket
+                {isViewingOther && <span style={{ color: '#60a5fa' }}> (viewing)</span>}
+              </p>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button onClick={() => setView('leaderboard')} style={styles.headerBtn}>🏆 Leaderboard</button>
-            <button onClick={handleLogout} style={styles.headerBtn}>Logout</button>
+            <button onClick={() => { setViewingUser(null); setView('leaderboard'); }} style={styles.headerBtn}>
+              {isViewingOther ? '← Back' : '🏆 Leaderboard'}
+            </button>
+            {!isViewingOther && userId && <button onClick={handleLogout} style={styles.headerBtn}>Logout</button>}
             {/* Confidence feature hidden for now
             <button
               onClick={() => setShowConfidence(!showConfidence)}
@@ -897,9 +938,9 @@ export default function App() {
               {countdown}
             </div>
             <div style={{ ...styles.badge, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(Object.keys(picks).length / 13) * 100}%`, background: isComplete ? 'linear-gradient(90deg, rgba(34,197,94,0.3), rgba(34,197,94,0.1))' : 'linear-gradient(90deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))', transition: 'width 0.3s ease' }} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isComplete ? '#22c55e' : picksComplete ? '#3b82f6' : '#f59e0b', position: 'relative' }} />
-              <span style={{ position: 'relative' }}>{Object.keys(picks).length}/13{picksComplete && !tiebreakerFilled ? ' ⚠️' : ''}</span>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${(displayPickCount / 13) * 100}%`, background: displayComplete ? 'linear-gradient(90deg, rgba(34,197,94,0.3), rgba(34,197,94,0.1))' : 'linear-gradient(90deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1))', transition: 'width 0.3s ease' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: displayComplete ? '#22c55e' : '#f59e0b', position: 'relative' }} />
+              <span style={{ position: 'relative' }}>{displayPickCount}/13</span>
             </div>
           </div>
         </div>
@@ -984,26 +1025,33 @@ export default function App() {
             {/* Tiebreaker */}
             <div style={styles.tiebreaker}>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, display: 'block' }}>Tiebreaker: Total Points in Super Bowl</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="e.g. 47"
-                value={tiebreaker}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 200)) {
-                    setTiebreaker(val);
-                  }
-                }}
-                style={{ ...styles.tiebreakerInput, borderColor: picksComplete && !tiebreakerFilled ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}
-              />
-              {tiebreaker && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Closest to actual without going over wins</p>}
-              {picksComplete && !tiebreakerFilled && <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>⚠️ Required to complete bracket</p>}
+              {isViewingOther ? (
+                <div style={{ ...styles.tiebreakerInput, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {viewingUser?.tiebreaker || '—'}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="e.g. 47"
+                  value={tiebreaker}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 200)) {
+                      setTiebreaker(val);
+                    }
+                  }}
+                  style={{ ...styles.tiebreakerInput, borderColor: picksComplete && !tiebreakerFilled ? '#f59e0b' : 'rgba(255,255,255,0.1)' }}
+                  disabled={isPastDeadline}
+                />
+              )}
+              {!isViewingOther && tiebreaker && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>Closest to actual without going over wins</p>}
+              {!isViewingOther && picksComplete && !tiebreakerFilled && <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>⚠️ Required to complete bracket</p>}
             </div>
 
-            {/* Clear All Button */}
-            {!isPastDeadline && (
+            {/* Clear All Button - only for own bracket before deadline */}
+            {!isPastDeadline && !isViewingOther && (
               <button
                 onClick={handleClearSelections}
                 style={{
@@ -1023,8 +1071,8 @@ export default function App() {
               </button>
             )}
 
-            {/* Submit Button */}
-            {isComplete && !submitted && !isPastDeadline && (
+            {/* Submit Button - only for own bracket */}
+            {!isViewingOther && isComplete && !submitted && !isPastDeadline && (
               <button
                 onClick={handleSubmit}
                 style={{
@@ -1046,7 +1094,7 @@ export default function App() {
                 🏆 Submit Bracket
               </button>
             )}
-            {submitted && (
+            {!isViewingOther && submitted && (
               <div style={{ marginTop: 24, padding: '12px 24px', background: 'rgba(34,197,94,0.1)', borderRadius: 12, border: '1px solid rgba(34,197,94,0.3)' }}>
                 <p style={{ color: '#22c55e', fontSize: 14, fontWeight: 600 }}>✓ Bracket Submitted!</p>
               </div>

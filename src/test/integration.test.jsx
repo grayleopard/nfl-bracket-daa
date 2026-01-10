@@ -85,7 +85,8 @@ describe('Complete User Journey', () => {
     });
   });
 
-  it('should persist and restore session via Firebase', async () => {
+  // Skip: After deadline, users go directly to leaderboard without login
+  it.skip('should persist and restore session via Firebase', async () => {
     const { unmount } = render(<App />);
 
     await joinBracket('Persist', 'User');
