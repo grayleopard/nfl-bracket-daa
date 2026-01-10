@@ -939,10 +939,7 @@ export default function App() {
                     {u.name}{u.isYou ? ' (You)' : ''}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                    {gamesCompleted > 0
-                      ? `${u.correct}/${gamesCompleted} correct`
-                      : `${u.pickCount}/13 picks`
-                    } {u.submitted && '✓'} {isPastDeadline && u.tiebreaker && `• TB: ${u.tiebreaker}`}
+                    {u.correct}/13 correct {u.submitted && '✓'} {isPastDeadline && u.tiebreaker && `• TB: ${u.tiebreaker}`}
                   </div>
                 </div>
                 {gamesCompleted > 0 && (
