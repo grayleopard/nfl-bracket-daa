@@ -100,6 +100,49 @@ const POINT_VALUES = {
   SB: 50        // Super Bowl
 };
 
+// Actual game results (update as games complete)
+// Key format matches pick keys: AFC_WC_0, NFC_DIV_1, AFC_CHAMP, SUPER_BOWL, etc.
+const RESULTS = {
+  // Wild Card Round (Jan 11-12)
+  // AFC_WC_0: 'NE',    // Example: Patriots won
+  // AFC_WC_1: 'JAX',
+  // AFC_WC_2: 'PIT',
+  // NFC_WC_0: 'CHI',
+  // NFC_WC_1: 'PHI',
+  // NFC_WC_2: 'LAR',
+  // Divisional Round (Jan 18-19)
+  // AFC_DIV_0: 'DEN',
+  // AFC_DIV_1: 'NE',
+  // NFC_DIV_0: 'SEA',
+  // NFC_DIV_1: 'CHI',
+  // Conference Championships (Jan 26)
+  // AFC_CHAMP: 'DEN',
+  // NFC_CHAMP: 'SEA',
+  // Super Bowl (Feb 8)
+  // SUPER_BOWL: 'DEN',
+};
+
+// Calculate score and correct picks for a user
+const calculateScore = (picks) => {
+  let points = 0;
+  let correct = 0;
+  let gamesCompleted = 0;
+
+  Object.keys(RESULTS).forEach(key => {
+    gamesCompleted++;
+    if (picks[key] === RESULTS[key]) {
+      correct++;
+      // Determine point value based on round
+      if (key.includes('_WC_')) points += POINT_VALUES.WC;
+      else if (key.includes('_DIV_')) points += POINT_VALUES.DIV;
+      else if (key.includes('_CHAMP')) points += POINT_VALUES.CHAMP;
+      else if (key === 'SUPER_BOWL') points += POINT_VALUES.SB;
+    }
+  });
+
+  return { points, correct, gamesCompleted };
+};
+
 export default function App() {
   const [view, setView] = useState('join');
   const [joinMode, setJoinMode] = useState('new'); // 'new' or 'returning'
@@ -619,14 +662,26 @@ export default function App() {
     );
   };
 
-  // Process leaderboard data - mark current user and sort by pick count
+  // Process leaderboard data - calculate scores and sort by points
+  const gamesCompleted = Object.keys(RESULTS).length;
   const leaderboard = leaderboardData
-    .map(u => ({
-      ...u,
-      name: u.displayName,
-      isYou: u.id === userId,
-    }))
-    .sort((a, b) => b.pickCount - a.pickCount);
+    .map(u => {
+      const score = calculateScore(u.picks || {});
+      return {
+        ...u,
+        name: u.displayName,
+        isYou: u.id === userId,
+        points: score.points,
+        correct: score.correct,
+      };
+    })
+    .sort((a, b) => {
+      // Sort by points first, then by tiebreaker if points are equal
+      if (b.points !== a.points) return b.points - a.points;
+      // If points are tied and we have a tiebreaker result, use it
+      // For now, just sort by correct picks as secondary
+      return b.correct - a.correct;
+    });
 
   // JOIN SCREEN
   if (view === 'join') return (
@@ -884,9 +939,18 @@ export default function App() {
                     {u.name}{u.isYou ? ' (You)' : ''}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                    {u.pickCount}/13 picks {u.submitted && '✓'} {isPastDeadline && u.tiebreaker && `• TB: ${u.tiebreaker}`}
+                    {gamesCompleted > 0
+                      ? `${u.correct}/${gamesCompleted} correct`
+                      : `${u.pickCount}/13 picks`
+                    } {u.submitted && '✓'} {isPastDeadline && u.tiebreaker && `• TB: ${u.tiebreaker}`}
                   </div>
                 </div>
+                {gamesCompleted > 0 && (
+                  <div style={{ textAlign: 'right', marginRight: 8 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd700' }}>{u.points}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>pts</div>
+                  </div>
+                )}
                 {isPastDeadline && u.champion && <TeamLogo team={u.champion} size={28} />}
                 {isPastDeadline && !u.isYou && userId && (
                   <button onClick={(e) => { e.stopPropagation(); setCompareUser(u); }} style={styles.compareBtn} title="Compare picks">⚔️</button>
