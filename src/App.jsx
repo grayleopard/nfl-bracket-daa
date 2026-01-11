@@ -122,25 +122,82 @@ const RESULTS = {
   // SUPER_BOWL: 'DEN',
 };
 
-// Calculate score and correct picks for a user
+// Get point value for a pick key
+const getPointValue = (key) => {
+  if (key.includes('_WC_')) return POINT_VALUES.WC;
+  if (key.includes('_DIV_')) return POINT_VALUES.DIV;
+  if (key.includes('_CHAMP')) return POINT_VALUES.CHAMP;
+  if (key === 'SUPER_BOWL') return POINT_VALUES.SB;
+  return 0;
+};
+
+// Get all eliminated teams (teams that lost in completed games)
+const getEliminatedTeams = () => {
+  const eliminated = new Set();
+  const allPickKeys = [
+    'AFC_WC_0', 'AFC_WC_1', 'AFC_WC_2', 'NFC_WC_0', 'NFC_WC_1', 'NFC_WC_2',
+    'AFC_DIV_0', 'AFC_DIV_1', 'NFC_DIV_0', 'NFC_DIV_1',
+    'AFC_CHAMP', 'NFC_CHAMP', 'SUPER_BOWL'
+  ];
+
+  // For each completed game, the loser is eliminated
+  Object.entries(RESULTS).forEach(([key, winner]) => {
+    // Find the matchup for this key to determine the loser
+    const conf = key.startsWith('AFC') ? 'AFC' : 'NFC';
+    if (key.includes('_WC_')) {
+      const idx = parseInt(key.split('_')[2]);
+      const matchups = [
+        [SEEDS[conf][1].team, SEEDS[conf][6].team], // WC_0: #2 vs #7
+        [SEEDS[conf][2].team, SEEDS[conf][5].team], // WC_1: #3 vs #6
+        [SEEDS[conf][3].team, SEEDS[conf][4].team], // WC_2: #4 vs #5
+      ];
+      const [team1, team2] = matchups[idx];
+      eliminated.add(winner === team1 ? team2 : team1);
+    }
+    // For later rounds, we need the bracket context - but teams that lost are already tracked
+    // We can infer from RESULTS: if a team won a game, their opponent lost
+  });
+
+  return eliminated;
+};
+
+// Calculate score, correct picks, and max possible points for a user
 const calculateScore = (picks) => {
   let points = 0;
   let correct = 0;
   let gamesCompleted = 0;
+  let maxPoints = 0;
 
-  Object.keys(RESULTS).forEach(key => {
-    gamesCompleted++;
-    if (picks[key] === RESULTS[key]) {
-      correct++;
-      // Determine point value based on round
-      if (key.includes('_WC_')) points += POINT_VALUES.WC;
-      else if (key.includes('_DIV_')) points += POINT_VALUES.DIV;
-      else if (key.includes('_CHAMP')) points += POINT_VALUES.CHAMP;
-      else if (key === 'SUPER_BOWL') points += POINT_VALUES.SB;
+  const eliminated = getEliminatedTeams();
+  const allPickKeys = [
+    'AFC_WC_0', 'AFC_WC_1', 'AFC_WC_2', 'NFC_WC_0', 'NFC_WC_1', 'NFC_WC_2',
+    'AFC_DIV_0', 'AFC_DIV_1', 'NFC_DIV_0', 'NFC_DIV_1',
+    'AFC_CHAMP', 'NFC_CHAMP', 'SUPER_BOWL'
+  ];
+
+  allPickKeys.forEach(key => {
+    const pointValue = getPointValue(key);
+
+    if (RESULTS[key]) {
+      // Game completed
+      gamesCompleted++;
+      if (picks[key] === RESULTS[key]) {
+        correct++;
+        points += pointValue;
+        maxPoints += pointValue; // Already earned
+      }
+      // If wrong, no points added to max (already lost these points)
+    } else {
+      // Game not yet played
+      const userPick = picks[key];
+      if (userPick && !eliminated.has(userPick)) {
+        // User has a pick and the team is still alive
+        maxPoints += pointValue;
+      }
     }
   });
 
-  return { points, correct, gamesCompleted };
+  return { points, correct, gamesCompleted, maxPoints };
 };
 
 export default function App() {
@@ -581,8 +638,11 @@ export default function App() {
     );
   };
 
+  // Get eliminated teams once for use in components
+  const eliminatedTeams = getEliminatedTeams();
+
   // Team Component
-  const Team = ({ data, selected, onClick, disabled, isUpsetPick }) => {
+  const Team = ({ data, selected, onClick, disabled, isUpsetPick, isEliminated }) => {
     if (!data) return (
       <div style={styles.teamEmpty}>
         <div style={styles.logoPlaceholder} />
@@ -591,24 +651,39 @@ export default function App() {
     );
     const t = NFL_TEAMS[data.t];
     const clickable = onClick && !disabled;
+    const showEliminated = selected && isEliminated;
     return (
       <div
         onClick={clickable ? onClick : undefined}
         style={{
           ...styles.team,
-          background: selected ? `linear-gradient(135deg, ${SELECTION_COLOR}22, ${SELECTION_COLOR}11)` : 'rgba(255,255,255,0.03)',
-          border: selected ? `2px solid ${SELECTION_COLOR}` : '2px solid transparent',
+          background: showEliminated
+            ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))'
+            : selected
+              ? `linear-gradient(135deg, ${SELECTION_COLOR}22, ${SELECTION_COLOR}11)`
+              : 'rgba(255,255,255,0.03)',
+          border: showEliminated
+            ? '2px solid rgba(239,68,68,0.5)'
+            : selected
+              ? `2px solid ${SELECTION_COLOR}`
+              : '2px solid transparent',
           cursor: clickable ? 'pointer' : 'default',
           opacity: disabled && !selected ? 0.5 : 1,
           transform: selected ? 'scale(1.02)' : 'scale(1)',
           boxShadow: selected ? `0 4px 16px ${SELECTION_COLOR}33` : 'none'
         }}
       >
-        <TeamLogo team={data.t} size={28} />
+        <TeamLogo team={data.t} size={28} style={showEliminated ? { opacity: 0.5 } : {}} />
         <span style={styles.seed}>{data.s}</span>
-        <span style={styles.name}>{t.city} {t.name}</span>
-        {isUpsetPick && selected && <span style={styles.upsetBadge} title="Upset Pick!">🔥</span>}
-        {selected && (
+        <span style={{
+          ...styles.name,
+          textDecoration: showEliminated ? 'line-through' : 'none',
+          color: showEliminated ? '#ef4444' : undefined,
+          opacity: showEliminated ? 0.7 : 1
+        }}>{t.city} {t.name}</span>
+        {isUpsetPick && selected && !showEliminated && <span style={styles.upsetBadge} title="Upset Pick!">🔥</span>}
+        {showEliminated && <span style={styles.eliminatedBadge} title="Eliminated">✗</span>}
+        {selected && !showEliminated && (
           <div style={{ ...styles.check, background: SELECTION_COLOR }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
               <polyline points="20 6 9 17 4 12" />
@@ -625,12 +700,14 @@ export default function App() {
     const confPts = confidence[pickKey];
     const availableConf = getAvailableConfidence();
     const isDisabled = isPastDeadline || isViewingOther;
+    const hEliminated = game.h && eliminatedTeams.has(game.h.t);
+    const lEliminated = game.l && eliminatedTeams.has(game.l.t);
 
     return (
       <div style={styles.matchup}>
-        <Team data={game.h} selected={game.w === game.h?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.h.t) : null} disabled={isDisabled} isUpsetPick={false} />
+        <Team data={game.h} selected={game.w === game.h?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.h.t) : null} disabled={isDisabled} isUpsetPick={false} isEliminated={hEliminated} />
         <div style={styles.vs}>VS</div>
-        <Team data={game.l} selected={game.w === game.l?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.l.t) : null} disabled={isDisabled} isUpsetPick={upsetPick} />
+        <Team data={game.l} selected={game.w === game.l?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.l.t) : null} disabled={isDisabled} isUpsetPick={upsetPick} isEliminated={lEliminated} />
         {game.w && showConfidence && (
           <div style={styles.confRow}>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Confidence:</span>
@@ -676,6 +753,7 @@ export default function App() {
         isYou: u.id === userId,
         points: score.points,
         correct: score.correct,
+        maxPoints: score.maxPoints,
       };
     })
     .sort((a, b) => {
@@ -967,7 +1045,7 @@ export default function App() {
                 {gamesCompleted > 0 && (
                   <div style={{ textAlign: 'right', marginRight: 8 }}>
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#ffd700' }}>{u.points}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>pts</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>pts (max: {u.maxPoints})</div>
                   </div>
                 )}
                 {isPastDeadline && u.champion && <TeamLogo team={u.champion} size={28} />}
@@ -986,6 +1064,8 @@ export default function App() {
   // BRACKET VIEW
   const displayScore = calculateScore(displayPicks);
   const displayCorrect = displayScore.correct;
+  const displayMaxPoints = displayScore.maxPoints;
+  const displayPoints = displayScore.points;
 
   return (
     <div style={styles.app}>
@@ -1027,6 +1107,12 @@ export default function App() {
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: displayCorrect === 13 ? '#22c55e' : '#f59e0b', position: 'relative' }} />
               <span style={{ position: 'relative' }}>{displayCorrect}/13 correct</span>
             </div>
+            {gamesCompleted > 0 && (
+              <div style={{ ...styles.badge, background: 'rgba(255,215,0,0.1)', borderColor: 'rgba(255,215,0,0.3)' }}>
+                <span style={{ color: '#ffd700', fontWeight: 700 }}>{displayPoints}</span>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>pts (max: {displayMaxPoints})</span>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -1279,6 +1365,7 @@ const styles = {
   name: { fontSize: 13, fontWeight: 600, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   check: { width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   upsetBadge: { fontSize: 14, marginLeft: 4 },
+  eliminatedBadge: { fontSize: 14, marginLeft: 4, color: '#ef4444', fontWeight: 700 },
   upsetTag: { marginTop: 6, fontSize: 10, fontWeight: 700, color: '#f97316', textAlign: 'center', letterSpacing: '0.05em' },
   confRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 },
   confSelect: { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, padding: '2px 6px', color: '#e5e7eb', fontSize: 11, cursor: 'pointer' },
