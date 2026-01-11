@@ -641,6 +641,11 @@ export default function App() {
   // Get eliminated teams once for use in components
   const eliminatedTeams = getEliminatedTeams();
 
+  // Debug: log eliminated teams and display picks
+  console.log('Eliminated teams:', Array.from(eliminatedTeams));
+  console.log('Display picks:', displayPicks);
+  console.log('Is viewing other:', isViewingOther, viewingUser?.name);
+
   // Team Component
   const Team = ({ data, selected, onClick, disabled, isUpsetPick, isEliminated }) => {
     if (!data) return (
