@@ -1173,13 +1173,13 @@ export default function App() {
             
             <div style={{ ...styles.sbMatchup, position: 'relative', overflow: 'hidden' }}>
               <div className="shimmer" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit' }} />
-              <Team data={bracket.sb.afc} selected={bracket.sb.w === bracket.sb.afc?.t} onClick={bracket.sb.afc && bracket.sb.nfc ? () => pick('SUPER_BOWL', bracket.sb.afc.t) : null} disabled={isPastDeadline} />
+              <Team data={bracket.sb.afc} selected={bracket.sb.w === bracket.sb.afc?.t} onClick={bracket.sb.afc && bracket.sb.nfc ? () => pick('SUPER_BOWL', bracket.sb.afc.t) : null} disabled={isPastDeadline} isEliminated={bracket.sb.afc && eliminatedTeams.has(bracket.sb.afc.t)} />
               <div style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'rgba(255,215,0,0.6)', letterSpacing: '0.2em', padding: '10px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <span style={{ width: 30, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.5))' }} />
                 VS
                 <span style={{ width: 30, height: 1, background: 'linear-gradient(90deg, rgba(255,215,0,0.5), transparent)' }} />
               </div>
-              <Team data={bracket.sb.nfc} selected={bracket.sb.w === bracket.sb.nfc?.t} onClick={bracket.sb.afc && bracket.sb.nfc ? () => pick('SUPER_BOWL', bracket.sb.nfc.t) : null} disabled={isPastDeadline} />
+              <Team data={bracket.sb.nfc} selected={bracket.sb.w === bracket.sb.nfc?.t} onClick={bracket.sb.afc && bracket.sb.nfc ? () => pick('SUPER_BOWL', bracket.sb.nfc.t) : null} disabled={isPastDeadline} isEliminated={bracket.sb.nfc && eliminatedTeams.has(bracket.sb.nfc.t)} />
             </div>
             
             {bracket.sb.w && (
