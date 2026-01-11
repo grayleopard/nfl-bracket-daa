@@ -105,7 +105,7 @@ const POINT_VALUES = {
 const RESULTS = {
   // Wild Card Round (Jan 11-12)
   // AFC_WC_0: 'NE',    // Example: Patriots won
-  // AFC_WC_1: 'JAX',
+  AFC_WC_1: 'BUF',      // Bills 27, Jaguars 24
   // AFC_WC_2: 'PIT',
   // NFC_WC_0: 'CHI',
   // NFC_WC_1: 'PHI',
@@ -705,17 +705,29 @@ export default function App() {
     const hEliminated = game.h && eliminatedTeams.has(game.h.t);
     const lEliminated = game.l && eliminatedTeams.has(game.l.t);
 
+    // Check if user picked correctly (game has a result and user's pick matches)
+    const gameResult = RESULTS[pickKey];
+    const isCorrectPick = gameResult && game.w === gameResult;
+    const isWrongPick = gameResult && game.w && game.w !== gameResult;
+
     return (
-      <div style={styles.matchup}>
+      <div style={{
+        ...styles.matchup,
+        border: isCorrectPick ? '2px solid #22c55e' : isWrongPick ? '2px solid #ef4444' : undefined,
+        borderRadius: isCorrectPick || isWrongPick ? 12 : undefined,
+        boxShadow: isCorrectPick ? '0 0 12px rgba(34,197,94,0.3)' : isWrongPick ? '0 0 12px rgba(239,68,68,0.2)' : undefined,
+        padding: isCorrectPick || isWrongPick ? 8 : undefined,
+        background: isCorrectPick ? 'rgba(34,197,94,0.05)' : isWrongPick ? 'rgba(239,68,68,0.05)' : undefined,
+      }}>
         <Team data={game.h} selected={game.w === game.h?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.h.t) : null} disabled={isDisabled} isUpsetPick={false} isEliminated={hEliminated} />
         <div style={styles.vs}>VS</div>
         <Team data={game.l} selected={game.w === game.l?.t} onClick={game.h && game.l && !isDisabled ? () => pick(pickKey, game.l.t) : null} disabled={isDisabled} isUpsetPick={upsetPick} isEliminated={lEliminated} />
         {game.w && showConfidence && (
           <div style={styles.confRow}>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Confidence:</span>
-            <select 
-              value={confPts || ''} 
-              onChange={e => assignConfidence(pickKey, e.target.value ? parseInt(e.target.value) : null)} 
+            <select
+              value={confPts || ''}
+              onChange={e => assignConfidence(pickKey, e.target.value ? parseInt(e.target.value) : null)}
               style={styles.confSelect}
             >
               <option value="">--</option>
@@ -725,7 +737,8 @@ export default function App() {
             {confPts && <span style={styles.confBadge}>{confPts} pts</span>}
           </div>
         )}
-        {upsetPick && <div style={styles.upsetTag}>🔥 UPSET</div>}
+        {upsetPick && !isCorrectPick && !isWrongPick && <div style={styles.upsetTag}>🔥 UPSET</div>}
+        {isCorrectPick && <div style={styles.correctTag}>✓ CORRECT</div>}
       </div>
     );
   };
@@ -1369,6 +1382,7 @@ const styles = {
   upsetBadge: { fontSize: 14, marginLeft: 4 },
   eliminatedBadge: { fontSize: 14, marginLeft: 4, color: '#ef4444', fontWeight: 700 },
   upsetTag: { marginTop: 6, fontSize: 10, fontWeight: 700, color: '#f97316', textAlign: 'center', letterSpacing: '0.05em' },
+  correctTag: { marginTop: 6, fontSize: 10, fontWeight: 700, color: '#22c55e', textAlign: 'center', letterSpacing: '0.05em' },
   confRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 },
   confSelect: { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, padding: '2px 6px', color: '#e5e7eb', fontSize: 11, cursor: 'pointer' },
   confBadge: { background: 'linear-gradient(135deg, #22c55e, #16a34a)', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: 'white' },
