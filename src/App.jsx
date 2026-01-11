@@ -109,7 +109,7 @@ const RESULTS = {
   // AFC_WC_2: 'PIT',
   // NFC_WC_0: 'CHI',
   // NFC_WC_1: 'PHI',
-  // NFC_WC_2: 'LAR',
+  NFC_WC_2: 'LAR',      // Rams 34, Panthers 31
   // Divisional Round (Jan 18-19)
   // AFC_DIV_0: 'DEN',
   // AFC_DIV_1: 'NE',
@@ -384,10 +384,13 @@ export default function App() {
     }
   };
 
-  // Check if a pick is an upset
+  // Check if a pick is an upset (higher seed number beats lower seed number)
   const isUpset = (game, winner) => {
     if (!game.h || !game.l || !winner) return false;
-    return winner === game.l.t;
+    const winnerTeam = winner === game.h.t ? game.h : game.l;
+    const loserTeam = winner === game.h.t ? game.l : game.h;
+    // Upset = winner has higher seed number (worse seed) than loser
+    return winnerTeam.s > loserTeam.s;
   };
 
   // Get available confidence points

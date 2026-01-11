@@ -136,6 +136,16 @@ describe('isUpset', () => {
     const game2 = { h: { t: 'JAX', s: 3 }, l: { t: 'PIT', s: 4 } };
     expect(isUpset(game2, 'PIT')).toBe(true);
   });
+
+  it('should compare actual seeds regardless of h/l position', () => {
+    // Scenario: championship game where #2 seed is in l position, #5 seed is in h position
+    // #2 beating #5 is NOT an upset (2 < 5)
+    const game1 = { h: { t: 'HOU', s: 5 }, l: { t: 'NE', s: 2 } };
+    expect(isUpset(game1, 'NE')).toBe(false);
+
+    // #5 beating #2 IS an upset (5 > 2)
+    expect(isUpset(game1, 'HOU')).toBe(true);
+  });
 });
 
 // ============================================

@@ -74,14 +74,17 @@ export const CONFIDENCE_POINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 export const AVATARS = ['🏈', '🦅', '🐻', '🐆', '🦁', '🐴', '🦬', '⚡', '🏴‍☠️', '🧀', '🌊', '⭐'];
 
 /**
- * Check if a pick is an upset (lower seed beats higher seed)
- * @param {Object} game - Game object with h (high seed) and l (low seed)
+ * Check if a pick is an upset (higher seed number beats lower seed number)
+ * @param {Object} game - Game object with h and l teams
  * @param {string} winner - Team abbreviation of the winner
  * @returns {boolean} - True if the pick is an upset
  */
 export function isUpset(game, winner) {
   if (!game.h || !game.l || !winner) return false;
-  return winner === game.l.t;
+  const winnerTeam = winner === game.h.t ? game.h : game.l;
+  const loserTeam = winner === game.h.t ? game.l : game.h;
+  // Upset = winner has higher seed number (worse seed) than loser
+  return winnerTeam.s > loserTeam.s;
 }
 
 /**
