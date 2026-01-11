@@ -109,6 +109,7 @@ const RESULTS = {
   // AFC_WC_2: 'PIT',
   // NFC_WC_0: 'CHI',
   // NFC_WC_1: 'PHI',
+  NFC_WC_0: 'CHI',      // Bears 31, Packers 27
   NFC_WC_2: 'LAR',      // Rams 34, Panthers 31
   // Divisional Round (Jan 18-19)
   // AFC_DIV_0: 'DEN',
@@ -641,11 +642,6 @@ export default function App() {
   // Get eliminated teams once for use in components
   const eliminatedTeams = getEliminatedTeams();
 
-  // Debug: log eliminated teams and display picks
-  console.log('Eliminated teams:', Array.from(eliminatedTeams));
-  console.log('Display picks:', displayPicks);
-  console.log('Is viewing other:', isViewingOther, viewingUser?.name);
-
   // Team Component
   const Team = ({ data, selected, onClick, disabled, isUpsetPick, isEliminated }) => {
     if (!data) return (
@@ -656,7 +652,8 @@ export default function App() {
     );
     const t = NFL_TEAMS[data.t];
     const clickable = onClick && !disabled;
-    const showEliminated = selected && isEliminated;
+    // Show eliminated styling whenever an eliminated team appears (not just when selected)
+    const showEliminated = isEliminated;
     return (
       <div
         onClick={clickable ? onClick : undefined}
@@ -673,9 +670,9 @@ export default function App() {
               ? `2px solid ${SELECTION_COLOR}`
               : '2px solid transparent',
           cursor: clickable ? 'pointer' : 'default',
-          opacity: disabled && !selected ? 0.5 : 1,
-          transform: selected ? 'scale(1.02)' : 'scale(1)',
-          boxShadow: selected ? `0 4px 16px ${SELECTION_COLOR}33` : 'none'
+          opacity: disabled && !selected ? 0.5 : (showEliminated ? 0.7 : 1),
+          transform: selected && !showEliminated ? 'scale(1.02)' : 'scale(1)',
+          boxShadow: selected && !showEliminated ? `0 4px 16px ${SELECTION_COLOR}33` : 'none'
         }}
       >
         <TeamLogo team={data.t} size={28} style={showEliminated ? { opacity: 0.5 } : {}} />
