@@ -110,6 +110,7 @@ const RESULTS = {
   // NFC_WC_0: 'CHI',
   // NFC_WC_1: 'PHI',
   NFC_WC_0: 'CHI',      // Bears 31, Packers 27
+  NFC_WC_1: 'SF',       // 49ers 23, Eagles 19
   NFC_WC_2: 'LAR',      // Rams 34, Panthers 31
   // Divisional Round (Jan 18-19)
   // AFC_DIV_0: 'DEN',
