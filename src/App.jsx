@@ -662,18 +662,12 @@ export default function App() {
           ...styles.team,
           background: showEliminated
             ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))'
-            : selected
-              ? `linear-gradient(135deg, ${SELECTION_COLOR}22, ${SELECTION_COLOR}11)`
-              : 'rgba(255,255,255,0.03)',
+            : 'rgba(255,255,255,0.03)',
           border: showEliminated
             ? '2px solid rgba(239,68,68,0.5)'
-            : selected
-              ? `2px solid ${SELECTION_COLOR}`
-              : '2px solid transparent',
+            : '2px solid transparent',
           cursor: clickable ? 'pointer' : 'default',
           opacity: disabled && !selected ? 0.5 : (showEliminated ? 0.7 : 1),
-          transform: selected && !showEliminated ? 'scale(1.02)' : 'scale(1)',
-          boxShadow: selected && !showEliminated ? `0 4px 16px ${SELECTION_COLOR}33` : 'none'
         }}
       >
         <TeamLogo team={data.t} size={28} style={showEliminated ? { opacity: 0.5 } : {}} />
