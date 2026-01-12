@@ -104,7 +104,7 @@ const POINT_VALUES = {
 // Key format matches pick keys: AFC_WC_0, NFC_DIV_1, AFC_CHAMP, SUPER_BOWL, etc.
 const RESULTS = {
   // Wild Card Round (Jan 11-12)
-  // AFC_WC_0: 'NE',    // Example: Patriots won
+  AFC_WC_0: 'NE',       // Patriots 16, Chargers 3
   AFC_WC_1: 'BUF',      // Bills 27, Jaguars 24
   // AFC_WC_2: 'PIT',
   // NFC_WC_0: 'CHI',
