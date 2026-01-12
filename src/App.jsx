@@ -482,38 +482,79 @@ export default function App() {
   const displayAvatar = viewingUser ? viewingUser.avatar : userAvatar;
   const isViewingOther = !!viewingUser;
 
-  // Build bracket structure
+  // Build bracket structure - uses ACTUAL results for matchups when available
   const getBracket = useCallback((picksToUse) => {
     const p = picksToUse || picks;
     const getTeam = (team) => ({ t: team, s: SEEDS.AFC.find(s => s.team === team)?.seed || SEEDS.NFC.find(s => s.team === team)?.seed });
+
+    // Wild Card games - fixed matchups, show user's pick or actual result as winner
     const wcGames = (conf) => [
       { h: getTeam(SEEDS[conf][1].team), l: getTeam(SEEDS[conf][6].team), w: p[`${conf}_WC_0`] },
       { h: getTeam(SEEDS[conf][2].team), l: getTeam(SEEDS[conf][5].team), w: p[`${conf}_WC_1`] },
       { h: getTeam(SEEDS[conf][3].team), l: getTeam(SEEDS[conf][4].team), w: p[`${conf}_WC_2`] },
     ];
 
+    // Get actual wild card winners from RESULTS (for building real divisional matchups)
+    const getActualWcWinners = (conf) => {
+      const winners = [];
+      if (RESULTS[`${conf}_WC_0`]) winners.push(getTeam(RESULTS[`${conf}_WC_0`]));
+      if (RESULTS[`${conf}_WC_1`]) winners.push(getTeam(RESULTS[`${conf}_WC_1`]));
+      if (RESULTS[`${conf}_WC_2`]) winners.push(getTeam(RESULTS[`${conf}_WC_2`]));
+      return winners;
+    };
+
+    // Divisional games - use ACTUAL wild card winners if all 3 games complete
     const divGames = (conf) => {
+      const actualWinners = getActualWcWinners(conf);
+      const top = getTeam(SEEDS[conf][0].team);
+
+      // If all 3 wild card games are complete, use actual matchups
+      if (actualWinners.length === 3) {
+        const sorted = [...actualWinners].sort((a, b) => a.s - b.s);
+        return [
+          { h: top, l: sorted[2], w: p[`${conf}_DIV_0`] },
+          { h: sorted[0], l: sorted[1], w: p[`${conf}_DIV_1`] },
+        ];
+      }
+
+      // Otherwise fall back to user's picks for display
       const wcWinners = wcGames(conf).map(g => g.w ? getTeam(g.w) : null).filter(Boolean);
       if (wcWinners.length < 3) return [{ h: null, l: null, w: p[`${conf}_DIV_0`] }, { h: null, l: null, w: p[`${conf}_DIV_1`] }];
       const sorted = [...wcWinners].sort((a, b) => a.s - b.s);
-      const top = getTeam(SEEDS[conf][0].team);
       return [
         { h: top, l: sorted[2], w: p[`${conf}_DIV_0`] },
         { h: sorted[0], l: sorted[1], w: p[`${conf}_DIV_1`] },
       ];
     };
 
+    // Get actual divisional winners from RESULTS
+    const getActualDivWinners = (conf) => {
+      const winners = [];
+      if (RESULTS[`${conf}_DIV_0`]) winners.push(getTeam(RESULTS[`${conf}_DIV_0`]));
+      if (RESULTS[`${conf}_DIV_1`]) winners.push(getTeam(RESULTS[`${conf}_DIV_1`]));
+      return winners;
+    };
+
+    // Championship game - use ACTUAL divisional winners if both games complete
     const champGame = (conf) => {
+      const actualDivWinners = getActualDivWinners(conf);
+
+      if (actualDivWinners.length === 2) {
+        return { h: actualDivWinners[0], l: actualDivWinners[1], w: p[`${conf}_CHAMP`] };
+      }
+
+      // Fall back to user's picks
       const dg = divGames(conf);
       const w0 = dg[0].w ? getTeam(dg[0].w) : null;
       const w1 = dg[1].w ? getTeam(dg[1].w) : null;
       return { h: w0, l: w1, w: p[`${conf}_CHAMP`] };
     };
 
+    // Super Bowl - use ACTUAL conference champions if both complete
     const sb = () => {
-      const afc = champGame('AFC').w ? getTeam(champGame('AFC').w) : null;
-      const nfc = champGame('NFC').w ? getTeam(champGame('NFC').w) : null;
-      return { afc, nfc, w: p.SUPER_BOWL };
+      const afcChamp = RESULTS.AFC_CHAMP ? getTeam(RESULTS.AFC_CHAMP) : (champGame('AFC').w ? getTeam(champGame('AFC').w) : null);
+      const nfcChamp = RESULTS.NFC_CHAMP ? getTeam(RESULTS.NFC_CHAMP) : (champGame('NFC').w ? getTeam(champGame('NFC').w) : null);
+      return { afc: afcChamp, nfc: nfcChamp, w: p.SUPER_BOWL };
     };
 
     return {

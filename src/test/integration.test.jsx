@@ -339,8 +339,9 @@ describe('Multi-Conference Independence', () => {
       expect(screen.getByText(/\/13 correct/)).toBeInTheDocument();
     });
 
-    // Make one NFC Wild Card pick
-    fireEvent.click(screen.getByText(/Chicago Bears/));
+    // Make one NFC Wild Card pick (use getAllByText since Bears may appear in multiple rounds)
+    const bearsElements = screen.getAllByText(/Chicago Bears/);
+    fireEvent.click(bearsElements[0]);
 
     await waitFor(() => {
       // Score depends on RESULTS - just check the format
