@@ -106,7 +106,7 @@ const RESULTS = {
   // Wild Card Round (Jan 11-12)
   AFC_WC_0: 'NE',       // Patriots 16, Chargers 3
   AFC_WC_1: 'BUF',      // Bills 27, Jaguars 24
-  // AFC_WC_2: 'PIT',
+  AFC_WC_2: 'HOU',      // Texans 30, Steelers 6
   // NFC_WC_0: 'CHI',
   // NFC_WC_1: 'PHI',
   NFC_WC_0: 'CHI',      // Bears 31, Packers 27
