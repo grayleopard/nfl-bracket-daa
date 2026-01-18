@@ -113,10 +113,10 @@ const RESULTS = {
   NFC_WC_1: 'SF',       // 49ers 23, Eagles 19
   NFC_WC_2: 'LAR',      // Rams 34, Panthers 31
   // Divisional Round (Jan 18-19)
-  // AFC_DIV_0: 'DEN',
-  // AFC_DIV_1: 'NE',
-  // NFC_DIV_0: 'SEA',
-  // NFC_DIV_1: 'CHI',
+  AFC_DIV_0: 'DEN',       // Broncos 33, Bills 30
+  // AFC_DIV_1: '',
+  NFC_DIV_0: 'SEA',       // Seahawks 41, 49ers 6
+  // NFC_DIV_1: '',
   // Conference Championships (Jan 26)
   // AFC_CHAMP: 'DEN',
   // NFC_CHAMP: 'SEA',
@@ -136,16 +136,20 @@ const getPointValue = (key) => {
 // Get all eliminated teams (teams that lost in completed games)
 const getEliminatedTeams = () => {
   const eliminated = new Set();
-  const allPickKeys = [
-    'AFC_WC_0', 'AFC_WC_1', 'AFC_WC_2', 'NFC_WC_0', 'NFC_WC_1', 'NFC_WC_2',
-    'AFC_DIV_0', 'AFC_DIV_1', 'NFC_DIV_0', 'NFC_DIV_1',
-    'AFC_CHAMP', 'NFC_CHAMP', 'SUPER_BOWL'
-  ];
+
+  // Helper to get WC winners for a conference (sorted by seed for reseeding)
+  const getWcWinners = (conf) => {
+    const winners = [];
+    if (RESULTS[`${conf}_WC_0`]) winners.push({ team: RESULTS[`${conf}_WC_0`], seed: SEEDS[conf].find(s => s.team === RESULTS[`${conf}_WC_0`])?.seed });
+    if (RESULTS[`${conf}_WC_1`]) winners.push({ team: RESULTS[`${conf}_WC_1`], seed: SEEDS[conf].find(s => s.team === RESULTS[`${conf}_WC_1`])?.seed });
+    if (RESULTS[`${conf}_WC_2`]) winners.push({ team: RESULTS[`${conf}_WC_2`], seed: SEEDS[conf].find(s => s.team === RESULTS[`${conf}_WC_2`])?.seed });
+    return winners.sort((a, b) => a.seed - b.seed);
+  };
 
   // For each completed game, the loser is eliminated
   Object.entries(RESULTS).forEach(([key, winner]) => {
-    // Find the matchup for this key to determine the loser
     const conf = key.startsWith('AFC') ? 'AFC' : 'NFC';
+
     if (key.includes('_WC_')) {
       const idx = parseInt(key.split('_')[2]);
       const matchups = [
@@ -155,9 +159,34 @@ const getEliminatedTeams = () => {
       ];
       const [team1, team2] = matchups[idx];
       eliminated.add(winner === team1 ? team2 : team1);
+    } else if (key.includes('_DIV_')) {
+      const idx = parseInt(key.split('_')[2]);
+      const wcWinners = getWcWinners(conf);
+      if (wcWinners.length === 3) {
+        const topSeed = SEEDS[conf][0].team; // #1 seed
+        // DIV_0: #1 vs worst WC winner (index 2)
+        // DIV_1: best WC winner (index 0) vs second best (index 1)
+        const matchups = [
+          [topSeed, wcWinners[2].team],
+          [wcWinners[0].team, wcWinners[1].team],
+        ];
+        const [team1, team2] = matchups[idx];
+        eliminated.add(winner === team1 ? team2 : team1);
+      }
+    } else if (key.includes('_CHAMP')) {
+      // Championship: winner of DIV_0 vs winner of DIV_1
+      const div0Winner = RESULTS[`${conf}_DIV_0`];
+      const div1Winner = RESULTS[`${conf}_DIV_1`];
+      if (div0Winner && div1Winner) {
+        eliminated.add(winner === div0Winner ? div1Winner : div0Winner);
+      }
+    } else if (key === 'SUPER_BOWL') {
+      const afcChamp = RESULTS['AFC_CHAMP'];
+      const nfcChamp = RESULTS['NFC_CHAMP'];
+      if (afcChamp && nfcChamp) {
+        eliminated.add(winner === afcChamp ? nfcChamp : afcChamp);
+      }
     }
-    // For later rounds, we need the bracket context - but teams that lost are already tracked
-    // We can infer from RESULTS: if a team won a game, their opponent lost
   });
 
   return eliminated;
