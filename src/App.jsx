@@ -116,7 +116,7 @@ const RESULTS = {
   AFC_DIV_0: 'DEN',       // Broncos 33, Bills 30
   AFC_DIV_1: 'NE',        // Patriots 28, Texans 16
   NFC_DIV_0: 'SEA',       // Seahawks 41, 49ers 6
-  // NFC_DIV_1: '',
+  NFC_DIV_1: 'LAR',       // Rams 20, Bears 17
   // Conference Championships (Jan 26)
   // AFC_CHAMP: 'DEN',
   // NFC_CHAMP: 'SEA',
