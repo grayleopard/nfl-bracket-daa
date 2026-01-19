@@ -114,7 +114,7 @@ const RESULTS = {
   NFC_WC_2: 'LAR',      // Rams 34, Panthers 31
   // Divisional Round (Jan 18-19)
   AFC_DIV_0: 'DEN',       // Broncos 33, Bills 30
-  // AFC_DIV_1: '',
+  AFC_DIV_1: 'NE',        // Patriots 28, Texans 16
   NFC_DIV_0: 'SEA',       // Seahawks 41, 49ers 6
   // NFC_DIV_1: '',
   // Conference Championships (Jan 26)
