@@ -118,8 +118,8 @@ const RESULTS = {
   NFC_DIV_0: 'SEA',       // Seahawks 41, 49ers 6
   NFC_DIV_1: 'LAR',       // Rams 20, Bears 17
   // Conference Championships (Jan 26)
-  // AFC_CHAMP: 'DEN',
-  // NFC_CHAMP: 'SEA',
+  AFC_CHAMP: 'NE',        // Patriots beat Broncos
+  NFC_CHAMP: 'SEA',       // Seahawks beat Rams
   // Super Bowl (Feb 8)
   // SUPER_BOWL: 'DEN',
 };
