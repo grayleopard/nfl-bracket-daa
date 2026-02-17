@@ -121,7 +121,7 @@ const RESULTS = {
   AFC_CHAMP: 'NE',        // Patriots beat Broncos
   NFC_CHAMP: 'SEA',       // Seahawks beat Rams
   // Super Bowl (Feb 8)
-  // SUPER_BOWL: 'DEN',
+  SUPER_BOWL: 'SEA',      // Seahawks beat Patriots
 };
 
 // Get point value for a pick key
